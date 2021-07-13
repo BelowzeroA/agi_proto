@@ -1,2 +1,3 @@
 pybox2d
-
+sympy
+opencv-python
