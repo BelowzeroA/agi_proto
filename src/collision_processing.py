@@ -20,14 +20,17 @@
 import pyglet
 import pygame
 import numpy as np
-from Box2D.examples.framework import Framework, main
+from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
-                   b2Random, b2Vec2, b2_dynamicBody, b2Color)
+                   b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
 
 
 class CollisionProcessing (Framework):
     name = "CollisionProcessing"
-
+    description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
+    x_offset = -10
+    y_offset = 10
+    grab = False
     def __init__(self):
         super(CollisionProcessing, self).__init__()
 
@@ -114,6 +117,63 @@ class CollisionProcessing (Framework):
             fixtures=circle,
         )
 
+        vertices = [(0, 0), (-4, 0), (-2, 1), ]
+        vertices = [(2 * x, 2 * y) for x, y in vertices]
+        triangle = b2FixtureDef(
+            shape=b2PolygonShape(vertices=vertices),
+            density=10,
+            restitution=1
+        )
+
+        triangle_left = world.CreateBody(
+            type=b2_dynamicBody,
+            #type=b2_kinematicBody,
+            position=(self.x_offset, self.y_offset),
+            fixtures=triangle,
+            gravityScale=0.0,
+            awake=True,
+        )
+
+
+
+    def Keyboard(self, key):
+        try:
+            if key == Keys.K_a:
+                self.world.bodies[-1].worldCenter[0] -= 1
+                if self.grab:
+                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[0] -= 1
+            elif key == Keys.K_s:
+                self.world.bodies[-1].worldCenter[1] -= 1
+                if self.grab:
+                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[1] -= 1
+            elif key == Keys.K_d:
+                self.world.bodies[-1].worldCenter[0] += 1
+                if self.grab:
+                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[0] += 1
+            elif key == Keys.K_w:
+                self.world.bodies[-1].worldCenter[1] += 1
+                if self.grab:
+                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[1] += 1
+            elif key == Keys.K_q:
+                if self.grab:
+                    self.grab = False
+                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.gravityScale = 1.0
+                else:
+                    self.grab = True
+                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.gravityScale = 0.0
+            elif key == Keys.K_e:
+                my_force = 5
+                delta_x = (self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[0] -
+                           self.world.bodies[-1].worldCenter[0])
+                delta_y = (self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[1] -
+                           self.world.bodies[-1].worldCenter[1])
+                self.grab = False
+                self.world.bodies[-1].contacts[0].contact.fixtureA.body.gravityScale = 1.0
+                self.world.bodies[-1].contacts[0].contact.fixtureA.body.linearVelocity[0] = my_force * delta_x
+                self.world.bodies[-1].contacts[0].contact.fixtureA.body.linearVelocity[1] = - my_force * delta_y
+        except IndexError:
+            pass
+
     def get_image0(self):
         buffer = pyglet.image.get_buffer_manager().get_color_buffer()
         image_data = buffer.get_image_data()
@@ -132,7 +192,11 @@ class CollisionProcessing (Framework):
         # points. We must buffer the bodies that should be destroyed
         # because they may belong to multiple contact points.
         nuke = []
-
+        self.world.bodies[-1].awake = True
+        self.world.bodies[-1].linearVelocity[0] = 0
+        self.world.bodies[-1].linearVelocity[1] = 0
+        self.world.bodies[-1].angularVelocity = 0
+        #self.world.bodies[-1].inertia = 0.0
         # Traverse the contact results. Destroy bodies that
         # are touching heavier bodies.
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
@@ -150,7 +214,7 @@ class CollisionProcessing (Framework):
 
                 if nuke_body not in nuke:
                     nuke.append(nuke_body)
-
+        nuke = []
         # Destroy the bodies, skipping duplicates.
         for b in nuke:
             print("Nuking:", b)

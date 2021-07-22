@@ -1,3 +1,6 @@
-pybox2d
-sympy
+Box2D
+pygame
+pyglet
+numpy
+#sympy
 opencv-python
