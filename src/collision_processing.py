@@ -20,28 +20,98 @@
 import pyglet
 import pygame
 import numpy as np
+import Box2D
 from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
 
+from cv_play import main_2, main_3
 
-class CollisionProcessing (Framework):
+
+def center_of_mass(vertices):
+    x = 0
+    y = 0
+    for line in vertices:
+        x += line[0]
+        y += line[1]
+    return x / len(vertices), y / len(vertices)
+
+
+def our_zoom(vertices):
+    x = vertices[0]
+    y = vertices[1]
+    return x * 10 + 320, (20 - y) * 10 + 240
+
+
+class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
+
+    def DrawSolidPolygon(self, vertices, color):
+        """
+        Draw a filled polygon given the screen vertices with the specified color.
+        """
+        EPS = 1
+        if not vertices:
+            return
+
+        if len(vertices) == 2:
+            pygame.draw.aaline(self.surface, color.bytes, vertices[0], vertices[1])
+        else:
+            for ind in range(len(self.test.world.bodies)):
+                u = our_zoom(self.test.world.bodies[ind].worldCenter)
+                v = center_of_mass(vertices)
+                if EPS > abs(u[0] - v[0]) and EPS > abs(u[0] - v[0]):
+                    color = self.test.our_color[ind]
+            pygame.draw.polygon(self.surface, color, vertices, 0)
+
+            #print(our_zoom(self.test.world.bodies[5].worldCenter))
+            #print(center_of_mass(vertices))
+            pygame.draw.polygon(self.surface, color, vertices, 1)
+
+
+class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFramework):
+
+    def __init__(self):
+        super().__init__()
+        self.renderer = CustomDraw(surface=self.screen, test=self)
+        #print(self.setCenter(self.world.bodies[0].worldCenter))
+        self.world.renderer = self.renderer
+
+
+class CollisionProcessing(CustomPygameFramework):
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
     y_offset = 10
     grab = False
+    ground_vertices = [(-50, 0), (50, 0)]
+    our_color = [
+        (255, 0, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (100, 0, 100),
+        (0, 100, 100),
+        (100, 100, 0),
+        (100, 100, 100),
+        (50, 100, 150),
+        (250, 100, 50),
+        (0, 250, 100)
+    ]
+
+
     def __init__(self):
         super(CollisionProcessing, self).__init__()
+        #CustomPygameFramework.__init__(self)
+
 
         # Tell the framework we're going to use contacts, so keep track of them
         # every Step.
         self.using_contacts = True
 
+
         # Ground body
         world = self.world
         ground = world.CreateBody(
-            shapes=b2EdgeShape(vertices=[(-50, 0), (50, 0)],)
+            shapes=b2EdgeShape(vertices=self.ground_vertices,)
         )
 
         xlow, xhi = -5, 5
@@ -127,12 +197,13 @@ class CollisionProcessing (Framework):
 
         triangle_left = world.CreateBody(
             type=b2_dynamicBody,
-            #type=b2_kinematicBody,
+            #type=b2_kinematicBodyз,
             position=(self.x_offset, self.y_offset),
             fixtures=triangle,
             gravityScale=0.0,
             awake=True,
         )
+        triangle_left.My_color = (1, 1, 1)
 
 
 
@@ -186,6 +257,7 @@ class CollisionProcessing (Framework):
         buffer = pygame.PixelArray(self.screen)
         # buffer[10:15, :, :]
         # return buffer
+        return buffer
 
     def Step(self, settings):
         # We are going to destroy some bodies according to contact
@@ -201,7 +273,9 @@ class CollisionProcessing (Framework):
         # are touching heavier bodies.
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
-        self.get_image()
+
+        #main_3('ScreenShot.png')
+        #self.get_image()
 
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass

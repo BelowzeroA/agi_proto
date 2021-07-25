@@ -2,5 +2,7 @@ Box2D
 pygame
 pyglet
 numpy
-#sympy
+scikit-image
+sympy
 opencv-python
+shapely

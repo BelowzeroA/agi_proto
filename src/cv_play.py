@@ -1,9 +1,22 @@
 from typing import List, Tuple
+import copy
 
 import cv2 as cv
 import numpy as np
 from skimage.measure import approximate_polygon
 from sympy import Segment, Point, Line, N, acos
+import shapely
+
+
+def does_point_inside_polygon(list_of_obj_points, point):
+    """
+    :param list_of_obj_points: список точек полигона
+    :param point: точка на плоскости
+    :return: bool, содержится ли точка в полигоне
+    """
+    polygon = shapely.geometry.polygon.Polygon(list_of_obj_points)
+    point = shapely.geometry.Point(point)
+    return polygon.contains(point)
 
 
 def mean(lst: list) -> float:
@@ -143,16 +156,133 @@ def find_roi(contour):
     return roi_centers
 
 
+def find_nozero_ind(our_screen):
+    print(type(our_screen))
+    res = []
+    for i in range(our_screen.shape[0]):
+        for j in range(our_screen.shape[1]):
+            if our_screen[i][j] != 0:
+                res.append((i, j))
+    return res
+
+
+# def filter(points_list, threshold):
+#    res = []
+#    len_lp = len(points_list)
+#    for i in range(len_lp):
+#        for j in range(i + 1, len_lp):
+#            res.append(((points_list[i][0] - points_list[j][0]) ** 2 +
+#                       (points_list[i][1] - points_list[j][1]) ** 2) ** (1/2))
+#    min_dist = min(res)
+#    for ind in range(len(res)):
+#        if ind / min_dist > threshold:
+
+
+
 def main():
-    filename = 'pics/test_picture_3.JPG'
+    filename = 'pics/ScreenShot2.png'
     img = cv.imread(filename)
     img_gray = cv.imread(filename, 0)
 
-    ret, thresh = cv.threshold(img_gray, 230, 200, 0)
+    ret, thresh = cv.threshold(img_gray, 0, 200, 0)
 
     # Compute contours of the shapes
     contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
-    arrow_contour = np.squeeze(contours[6])
+    if len(contours) == 0:
+        return 0
+    for i in range(len(contours)):
+        arrow_contour = np.squeeze(contours[i])
+
+        # polygonize the rounded square
+        approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)
+
+        # compute the ROI centers
+        roi = find_roi(approx_contour)
+
+        # for point in roi:
+        # Big red dots - centers of ROI
+        #    cv.circle(img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+
+        for point in approx_contour:
+            # small black dots - points after polygonizing
+            cv.circle(img, (point[0], point[1]), 2, (0, 255, 0), -1)
+        # cv.drawContours(img, [approx_arrow_contour], -1, (0, 255, 0), 3)
+
+    cv.imwrite('contoured.jpg', img)
+
+    # cv.imshow('Image', img)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+
+def main_3(filename=None):
+    if not filename:
+        filename = 'pics/test_picture_3.JPG'
+    img = cv.imread(filename)
+    # print(find_nozero_ind(img))
+    img_gray = cv.imread(filename, 0)
+    # cv.imshow('Image3', img_gray)
+
+    # ret, thresh = cv.threshold(img_gray, 230, 200, 0)
+    ret, thresh = cv.threshold(img_gray, 0, 200, 0)
+    # ret, thresh = cv.threshold(img_gray, 0, 0, 0)
+    # Compute contours of the shapes
+    contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+    # print('contours', len(contours), contours)
+    if len(contours) != 0:
+        print()
+        arrow_contour = np.squeeze(contours[0])
+
+        # polygonize the rounded square
+        approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)
+
+        # compute the ROI centers
+        roi = find_roi(approx_contour)
+
+        for point in roi:
+            # print(img)
+            # print(img.shape)
+            # print(type(img[0][0]))
+            # Big red dots - centers of ROI
+            cv.circle(img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+
+        for point in approx_contour:
+            # small black dots - points after polygonizing
+            cv.circle(img, (point[0], point[1]), 2, (0, 255, 0), -1)
+        # cv.drawContours(img, [approx_arrow_contour], -1, (0, 255, 0), 3)
+
+        cv.imwrite('contoured.jpg', img)
+
+        cv.imshow('Image', img)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+
+def main_2(img):
+    # a = find_nozero_ind(img)
+    # print(a)
+    # print(len(a))
+    print(img.shape)
+    print(type(img))
+    # img = cv.imread(filename)
+    # print(type(img))
+    # print(img)
+    # img_gray = cv.imread(filename, 0)
+    # img = np.asarray(img, dtype="int64")
+    img = np.asarray(img, dtype="uint8")
+    img_gray = copy.deepcopy(img)
+    print(img_gray.shape)
+    print(type(img_gray))
+    print(type(img_gray[0][0]))
+    print(img_gray[0][0])
+    # img_gray= cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    cv.imwrite('1.jpg', img)
+
+    ret, thresh = cv.threshold(img_gray, 230, 200, 0)
+    # ret, thresh = cv.threshold(img_gray, 0, 0, 0)
+    # Compute contours of the shapes
+    contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+    arrow_contour = np.squeeze(contours[8])
 
     # polygonize the rounded square
     approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)
@@ -160,16 +290,19 @@ def main():
     # compute the ROI centers
     roi = find_roi(approx_contour)
 
-    for point in roi:
-        # Big red dots - centers of ROI
-        cv.circle(img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+    # for point in roi:
+    #    # Big red dots - centers of ROI
+    #    print(img)
+    #    print(img.shape)
+    #    print(type(img[0][0]))
+    #    cv.circle(np.float32(img), (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
 
-    for point in approx_contour:
-        # small black dots - points after polygonizing
-        cv.circle(img, (point[0], point[1]), 2, (0, 0, 0), -1)
+    # for point in approx_contour:
+    #    # small black dots - points after polygonizing
+    #    cv.circle(img, (point[0], point[1]), 2, (0, 0, 0), -1)
     # cv.drawContours(img, [approx_arrow_contour], -1, (0, 255, 0), 3)
 
-    cv.imwrite('contoured.jpg', img)
+    # cv.imwrite('contoured.jpg', img)
 
     cv.imshow('Image', img)
     cv.waitKey(0)
