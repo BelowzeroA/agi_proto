@@ -231,7 +231,7 @@ def main_3(filename=None):
     # print('contours', len(contours), contours)
     if len(contours) != 0:
         print()
-        arrow_contour = np.squeeze(contours[0])
+        arrow_contour = np.squeeze(contours[1])
 
         # polygonize the rounded square
         approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)

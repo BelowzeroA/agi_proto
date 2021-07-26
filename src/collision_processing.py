@@ -24,8 +24,18 @@ import Box2D
 from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
+import cv2 as cv
 
 from cv_play import main_2, main_3
+
+
+try:
+    from .pygame_gui import (fwGUI, gui)
+    GUIEnabled = True
+except Exception as ex:
+    print('Unable to load PGU; menu disabled.')
+    print('(%s) %s' % (ex.__class__.__name__, ex))
+    GUIEnabled = False
 
 
 def center_of_mass(vertices):
@@ -45,27 +55,75 @@ def our_zoom(vertices):
 
 class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
 
+    EPS = 1
+
     def DrawSolidPolygon(self, vertices, color):
         """
         Draw a filled polygon given the screen vertices with the specified color.
         """
-        EPS = 1
         if not vertices:
             return
-
         if len(vertices) == 2:
-            pygame.draw.aaline(self.surface, color.bytes, vertices[0], vertices[1])
+            pygame.draw.aaline(self.surface, color, vertices[0], vertices[1])
         else:
             for ind in range(len(self.test.world.bodies)):
                 u = our_zoom(self.test.world.bodies[ind].worldCenter)
                 v = center_of_mass(vertices)
-                if EPS > abs(u[0] - v[0]) and EPS > abs(u[0] - v[0]):
+                if self.EPS > abs(u[0] - v[0]) and self.EPS > abs(u[0] - v[0]):
                     color = self.test.our_color[ind]
             pygame.draw.polygon(self.surface, color, vertices, 0)
 
             #print(our_zoom(self.test.world.bodies[5].worldCenter))
             #print(center_of_mass(vertices))
-            pygame.draw.polygon(self.surface, color, vertices, 1)
+            pygame.draw.polygon(self.surface, b2Color(0.9, 0.7, 0.7), vertices, 1)
+
+    def DrawSolidCircle(self, center, radius, axis, color):
+        """
+        Draw a solid circle given the center, radius, axis of orientation and
+        color.
+        """
+
+        for ind in range(len(self.test.world.bodies)):
+            u = our_zoom(self.test.world.bodies[ind].worldCenter)
+            if self.EPS > abs(u[0] - center[0]) and self.EPS > abs(u[0] - center[0]):
+                cur_ind = ind
+                color = self.test.our_color[ind]
+
+        radius *= self.zoom
+        if radius < 1:
+            radius = 1
+        else:
+            radius = int(radius)
+
+        pygame.draw.circle(self.surface, color,
+                           center, radius, 0)
+        pygame.draw.circle(self.surface, b2Color(0.9, 0.7, 0.7), center, radius, 1)
+        pygame.draw.aaline(self.surface, (255, 0, 0), center,
+                           (center[0] - radius * axis[0],
+                            center[1] + radius * axis[1]))
+
+    def DrawCircle(self, center, radius, color, drawwidth=1):
+        """
+        Draw a wireframe circle given the center, radius, axis of orientation
+        and color.
+        """
+        #print(len(self.test.world.bodies))
+        #print(self.test.world.bodies[0])
+        #for ind in range(len(self.test.world.bodies)):
+        #    u = our_zoom(self.test.world.bodies[ind].worldCenter)
+        for ind in range(len(self.test.world.bodies)):
+            u = our_zoom(self.test.world.bodies[ind].worldCenter)
+            if self.EPS > abs(u[0] - center[0]) and self.EPS > abs(u[0] - center[0]):
+                cur_ind = ind
+                color = self.test.our_color[ind]
+
+        radius *= self.zoom
+        if radius < 1:
+            radius = 1
+        else:
+            radius = int(radius)
+        pygame.draw.circle(self.surface, color,
+                           center, radius, drawwidth)
 
 
 class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFramework):
@@ -75,6 +133,56 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.renderer = CustomDraw(surface=self.screen, test=self)
         #print(self.setCenter(self.world.bodies[0].worldCenter))
         self.world.renderer = self.renderer
+
+    def run(self):
+        """
+        Main loop.
+
+        Continues to run while checkEvents indicates the user has
+        requested to quit.
+
+        Updates the screen and tells the GUI to paint itself.
+        """
+
+        # If any of the test constructors update the settings, reflect
+        # those changes on the GUI before running
+        if GUIEnabled:
+            self.gui_table.updateGUI(self.settings)
+
+        running = True
+        clock = pygame.time.Clock()
+        while running:
+            running = self.checkEvents()
+            self.screen.fill((0, 0, 0))
+
+            # Check keys that should be checked every loop (not only on initial
+            # keydown)
+            self.CheckKeys()
+
+            # Run the simulation loop
+            self.SimulationLoop()
+
+            if GUIEnabled and self.settings.drawMenu:
+                self.gui_app.paint(self.screen)
+
+            pygame.display.flip()
+            pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
+            #pygame.image.save(self.screen, '..rrrrr.png')
+            clock.tick(self.settings.hz)
+            self.fps = clock.get_fps()
+
+        self.world.contactListener = None
+        self.world.destructionListener = None
+        self.world.renderer = None
+
+
+    def Print(self, str, color=(229, 153, 153, 255)):
+        """
+        Переопределили функцию которая делает тексты
+        Draw some text at the top status lines
+        and advance to the next line.
+        """
+        pass
 
 
 class CollisionProcessing(CustomPygameFramework):
@@ -90,13 +198,12 @@ class CollisionProcessing(CustomPygameFramework):
         (0, 0, 255),
         (100, 0, 100),
         (0, 100, 100),
-        (100, 100, 0),
+        (150, 100, 0),
         (100, 100, 100),
         (50, 100, 150),
         (250, 100, 50),
         (0, 250, 100)
     ]
-
 
     def __init__(self):
         super(CollisionProcessing, self).__init__()
@@ -120,6 +227,7 @@ class CollisionProcessing(CustomPygameFramework):
 
         x, y, z = 1.0, 200.0, 3.0
         c1 = b2Color(x, y, z)
+        #""" Для того чтоб остались одни шары
         # Small triangle
         triangle = b2FixtureDef(
             shape=b2PolygonShape(vertices=[(-3, 0), (1, 0), (0, 2)]),
@@ -166,7 +274,7 @@ class CollisionProcessing(CustomPygameFramework):
             position=random_vector(),
             fixtures=box,
         )
-
+# """
         # Small circle
         circle = b2FixtureDef(
             shape=b2CircleShape(radius=1),
@@ -260,6 +368,7 @@ class CollisionProcessing(CustomPygameFramework):
         return buffer
 
     def Step(self, settings):
+
         # We are going to destroy some bodies according to contact
         # points. We must buffer the bodies that should be destroyed
         # because they may belong to multiple contact points.
@@ -274,9 +383,8 @@ class CollisionProcessing(CustomPygameFramework):
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
 
-        #main_3('ScreenShot.png')
+        main_3('rrrrr.png')
         #self.get_image()
-
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass
 
@@ -295,6 +403,7 @@ class CollisionProcessing(CustomPygameFramework):
             self.world.DestroyBody(b)
 
         nuke = None
+
 
         super(CollisionProcessing, self).Step(settings)
 
