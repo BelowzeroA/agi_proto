@@ -6,6 +6,10 @@ import numpy as np
 from skimage.measure import approximate_polygon
 from sympy import Segment, Point, Line, N, acos
 import shapely
+from shapely import geometry
+
+
+ALPHA = 180 / np.arccos(-1)
 
 
 def does_point_inside_polygon(list_of_obj_points, point):
@@ -166,6 +170,119 @@ def find_nozero_ind(our_screen):
     return res
 
 
+def point_orientation(vec_point_1, vec_point_2, point):
+    '''
+    :param vec_point_1: начальная точка вектора
+    :param vec_point_2: конечная точка вектора
+    :param point: некоторая точка
+    :return: скаляр. Если > 0, то лежит справа от прямой (если смотреть от начальной точки
+    вектора в сторону конечной точки вектора)
+    Если < 0, то слева от прямой
+    Если = 0, то на прямой.
+    '''
+    return ((point[0] - vec_point_1[0]) * (vec_point_2[1] - point[1]) -
+            (point[1] - vec_point_1[1]) * (vec_point_2[0] - point[0])
+    )
+
+
+def what_quadrant(roi, p1, p2):
+    dx_1 = roi[0] - p1[0]
+    dy_1 = roi[1] - p1[1]
+    dx_2 = roi[0] - p2[0]
+    dy_2 = roi[1] - p2[1]
+    if dx_1 + dx_2 == 1 or dy_1 + dy_2 == 1:
+        # точки в разных квадрантах
+        return 5
+    elif dx_1 > 0:
+        if dy_1 > 0:
+            return 1
+        else:
+            return 2
+    elif dy_1 > 0:
+        return 0
+    else:
+        return 3
+
+
+def get_mass(value):
+    if value >= 0.4:
+        return 2
+    return 1
+
+
+def get_corner(p1, p2):
+    if p1[1] > p2[1]:
+        p1, p2 = p2, p1
+    a = np.array([p2[0] - p1[0], p2[1] - p1[1]], dtype=np.float32)
+    b = np.array([5, 0])
+    return round(ALPHA * np.arccos(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))))
+
+
+def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
+    quadrant_norm = 1.42 * quadrant_size
+    result = {}
+    result['roi'] = roi
+    result['quadrants'] = [[], [], [], []]
+    polygon = geometry.polygon.Polygon(approx_contour)
+    x_left = roi[0] - quadrant_size
+    x_right = roi[0] + quadrant_size - 1
+    y_top = roi[1] + quadrant_size - 1
+    y_bottom = roi[1] - quadrant_size
+    approx_contour_points_into_square = []
+    res = []
+    segmetnts = []
+    for point in approx_contour[:-1]:
+        if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
+            approx_contour_points_into_square.append(point)
+    for point in contour:
+        if (x_left <= point[0][0] and point[0][0] <= x_right and y_bottom <= point[0][1] and point[0][1] <= y_top):
+            if point[0][0] == x_left or point[0][0] == x_right or point[0][1] == y_top or point[0][1] == y_bottom:
+                res.append(point[0])
+                segmetnts.append(point[0])
+            elif (point[0][0] == roi[0] or point[0][0] == roi[0] - 1 or point[0][1] == roi[1] or point[0][1] == roi[1] - 1):
+                if len(res) != 0:
+                    if point[0][0] != res[-1][0] and point[0][1] != res[-1][1]:
+                        res.append(point[0])
+                else:
+                    res.append(point[0])
+            elif point in approx_contour_points_into_square:
+                res.append(point[0])
+
+    for ind in range(1, len(res)):
+        quadrant_number = what_quadrant(roi, res[ind - 1], res[ind])
+        if quadrant_number == 5:
+            continue
+        our_line = {}
+        our_line['angle'] = get_corner(res[ind - 1], res[ind])
+        our_line['mass'] = get_mass(np.linalg.norm([res[ind][0] - res[ind - 1][0],
+                                                    res[ind][1] - res[ind - 1][1]]) / quadrant_norm)
+        result['quadrants'][quadrant_number].append(our_line)
+
+    # find color
+    for ind in range(1, len(segmetnts)):
+        u = segmetnts[ind - 1]
+        v = segmetnts[ind]
+        if u[0] == v[0]:
+            try_point = shapely.geometry.Point(u[0], round((u[1] + v[1]) / 2))
+            if polygon.contains(try_point):
+                our_color_point = u[0], round((u[1] + v[1]) / 2)
+                break
+        elif u[1] == v[1]:
+            try_point = shapely.geometry.Point(round((u[0] + v[0]) / 2), u[1])
+            if polygon.contains(try_point):
+                our_color_point = round((u[0] + v[0]) / 2), u[1]
+                break
+        else:
+            if polygon.contains(shapely.geometry.Point(u[0], v[1])):
+                our_color_point = u[0], v[1]
+                break
+            elif polygon.contains(shapely.geometry.Point(v[0], u[1])):
+                our_color_point = v[0], u[1]
+                break
+    result['color'] = img[our_color_point[1], our_color_point[0]]
+    return result
+
+
 # def filter(points_list, threshold):
 #    res = []
 #    len_lp = len(points_list)
@@ -176,6 +293,111 @@ def find_nozero_ind(our_screen):
 #    min_dist = min(res)
 #    for ind in range(len(res)):
 #        if ind / min_dist > threshold:
+
+def into_segment(list_x, list_y, p1, p2):
+    x = p1[0]
+    y = p2[0]
+    if x > y:
+        x, y = y, x
+    res_x = []
+    res_y = []
+    res_x.append(x)
+    for elem in list_x:
+        if x < elem and elem < y:
+            res_x.append(elem)
+    res_x.append(y)
+
+    x = p1[1]
+    y = p2[1]
+    if x > y:
+        x, y = y, x
+    res_y.append(x)
+    for elem in list_y:
+        if x < elem and elem < y:
+            res_y.append(elem)
+    res_y.append(y)
+    return res_x, res_y
+
+
+def into_roi_square(point, x_left, x_right, y_bottom, y_top):
+    return x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top
+
+
+def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
+    quadrant_norm = 1.42 * quadrant_size
+    result = {}
+    result['roi'] = roi
+    result['quadrants'] = [[], [], [], []]
+    polygon = geometry.polygon.Polygon(approx_contour)
+    x_left = roi[0] - quadrant_size
+    x_right = roi[0] + quadrant_size - 1
+    y_top = roi[1] + quadrant_size - 1
+    y_bottom = roi[1] - quadrant_size
+    approx_contour_points_into_square = []
+    list_x = sorted([x_left, x_right, roi[0] - 1, roi[0]])
+    list_y = sorted([y_bottom, y_top, roi[1] - 1, roi[1]])
+    res = []
+    #segmetnts = []
+    #for point in approx_contour[:-1]:
+    #    if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
+    #        approx_contour_points_into_square.append(point)
+    a = list(approx_contour[0])
+    approx_contour = list(approx_contour[:-1])
+    approx_contour.append(a)
+    for ind in range(1, len(approx_contour)):
+        min_res = []
+        p1_flag = into_roi_square(approx_contour[ind - 1], x_left, x_right, y_bottom, y_top)
+        p2_flag = into_roi_square(approx_contour[ind], x_left, x_right, y_bottom, y_top)
+        if p1_flag or p2_flag:
+            if p1_flag:
+                min_res.append(tuple(approx_contour[ind - 1]))
+            if p2_flag:
+                min_res.append(tuple(approx_contour[ind]))
+            approx_list_x, approx_list_y = into_segment(list_x, list_y, approx_contour[ind - 1], approx_contour[ind])
+            if approx_list_x[0] == approx_contour[ind][0]:
+                start_point = approx_contour[ind]
+                end_point = approx_contour[ind - 1]
+            else:
+                start_point = approx_contour[ind - 1]
+                end_point = approx_contour[ind]
+            for x in approx_list_x[1:-1]:
+                dx = x - start_point[0]
+                y = (dx / (end_point[0] - start_point[0])) * (end_point[1] - start_point[1]) + start_point[1]
+                min_res.append((x, round(y)))
+            for y in approx_list_y[1:-1]:
+                dy = y - start_point[1]
+                x = (dy / (end_point[1] - start_point[1])) * (end_point[0] - start_point[0]) + start_point[0]
+                min_res.append((round(x), y))
+            min_res.sort()
+            res.extend(min_res)
+            res.append(0)
+    for ind in range(1, len(res)):
+        if res[ind] == 0 or res[ind - 1] == 0:
+            continue
+        quadrant_number = what_quadrant(roi, res[ind - 1], res[ind])
+        if quadrant_number == 5:
+            continue
+        our_line = {}
+        our_line['angle'] = get_corner(res[ind - 1], res[ind])
+        our_line['mass'] = get_mass(np.linalg.norm(np.array([res[ind][0] - res[ind - 1][0],
+                                                    res[ind][1] - res[ind - 1][1]], dtype=np.float32)) / quadrant_norm)
+        result['quadrants'][quadrant_number].append(our_line)
+    # for color
+    for ind in range(1, len(res)):
+        if res[ind] == 0 or res[ind - 1] == 0:
+            continue
+        if True:
+            x_mean = round((res[ind][0] + res[ind - 1][0]) / 2)
+            y_mean = round((res[ind][1] + res[ind - 1][1]) / 2)
+            try_point = shapely.geometry.Point(x_mean + 3, y_mean)
+            if polygon.contains(try_point):
+                result['color'] = img[y_mean, x_mean + 3]
+                break
+            try_point = shapely.geometry.Point(x_mean - 3, y_mean)
+            if polygon.contains(try_point):
+                result['color'] = img[y_mean, x_mean - 3]
+                break
+    return result
 
 
 
@@ -192,9 +414,9 @@ def main():
         return 0
     for i in range(len(contours)):
         arrow_contour = np.squeeze(contours[i])
-
         # polygonize the rounded square
         approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)
+        #print(approx_contour)
 
         # compute the ROI centers
         roi = find_roi(approx_contour)
@@ -215,6 +437,27 @@ def main():
     cv.destroyAllWindows()
 
 
+def zoom_roi(roi, approx_contour, contour):
+    x_left = roi[0] - 3
+    x_right = roi[0] + 1
+    y_top = roi[1] + 2
+    y_bottom = roi[1] - 2
+    approx_contour_points_into_square = []
+    res = []
+    res_indicate = []
+    for point in approx_contour:
+        if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
+            approx_contour_points_into_square.append(point)
+    for point in contour:
+        if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
+            if point[0] == x_left or point[0] == x_right or point[1] == y_top or point[1] == y_bottom:
+                res.append(point)
+                res_indicate.append(1)
+            elif point in approx_contour_points_into_square:
+                res.append(point)
+                res_indicate.append(0)
+
+
 def main_3(filename=None):
     if not filename:
         filename = 'pics/test_picture_3.JPG'
@@ -228,24 +471,42 @@ def main_3(filename=None):
     # ret, thresh = cv.threshold(img_gray, 0, 0, 0)
     # Compute contours of the shapes
     contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
-    # print('contours', len(contours), contours)
+    quadrant_roi_list = []
     if len(contours) != 0:
-        print()
         arrow_contour = np.squeeze(contours[1])
 
         # polygonize the rounded square
         approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)
-
+        #print('approx_contour', approx_contour)
         # compute the ROI centers
         roi = find_roi(approx_contour)
-
-        for point in roi:
+        print(roi)
+        cv.imshow('roi0', cv.resize(img_gray[(roi[0][1]) - 20:roi[0][1] + 20,
+                                      roi[0][0] - 20: roi[0][0] + 20,
+                                      ], (120, 120), cv.INTER_NEAREST))
+        cv.imshow('roi1', cv.resize(img_gray[(roi[1][1]) - 20:roi[1][1] + 20,
+                                      roi[1][0] - 20: roi[1][0] + 20,
+                                      ], (120, 120), cv.INTER_NEAREST))
+        cv.imshow('roi2', cv.resize(img_gray[(roi[2][1]) - 20:roi[2][1] + 20,
+                                      roi[2][0] - 20: roi[2][0] + 20,
+                                      ], (120, 120), cv.INTER_NEAREST))
+        cv.imshow('roi3', cv.resize(img_gray[(roi[3][1]) - 20:roi[3][1] + 20,
+                                      roi[3][0] - 20: roi[3][0] + 20,
+                                      ], (120, 120), cv.INTER_NEAREST))
+        for point in roi[:-1]:
+            quadrant_roi_list.append(
+                quadrant_roi_analysis(point, approx_contour, contours[1], 20, img)
+            )
+            #cv.imshow('Image2', cv.resize(img_gray[int(point[1]) - 5:int(point[1]) + 5,
+            #                              int(point[0]) - 5: int(point[0]) + 5,
+            #                              ], (120, 120), cv.INTER_NEAREST))
             # print(img)
             # print(img.shape)
             # print(type(img[0][0]))
             # Big red dots - centers of ROI
             cv.circle(img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
-
+        print(len(quadrant_roi_list))
+        print(quadrant_roi_list)
         for point in approx_contour:
             # small black dots - points after polygonizing
             cv.circle(img, (point[0], point[1]), 2, (0, 255, 0), -1)
@@ -256,7 +517,6 @@ def main_3(filename=None):
         cv.imshow('Image', img)
     cv.waitKey(0)
     cv.destroyAllWindows()
-
 
 def main_2(img):
     # a = find_nozero_ind(img)
