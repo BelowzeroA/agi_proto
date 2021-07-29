@@ -28,6 +28,7 @@ from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
 import cv2 as cv
 
 from cv_play import main_2, main_3
+from agent import Agent
 
 
 try:
@@ -187,6 +188,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
 
 
 class CollisionProcessing(CustomPygameFramework):
+    agent = Agent()
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
@@ -231,68 +233,30 @@ class CollisionProcessing(CustomPygameFramework):
         #""" Для того чтоб остались одни шары
         # Small triangle
         triangle = b2FixtureDef(
-            shape=b2PolygonShape(vertices=[(-3, 0), (1, 0), (0, 2)]),
+            shape=b2PolygonShape(vertices=[(-6, 0), (2, 0), (0, 4)]),
             density=1,
         )
 
         world.CreateBody(
             type=b2_dynamicBody,
-            position=random_vector(),
+            #position=random_vector(),
+            position=(2, 0),
             fixtures=triangle,
         )
 
-        body = world.CreateDynamicBody(position=(2, 4))
-        box = body.CreatePolygonFixture(box=(2, 2), density=1, friction=0.3)
-
-        # Large triangle (recycle definitions)
-        triangle.shape.vertices = [
-            2.0 * b2Vec2(v) for v in triangle.shape.vertices]
-
-        tri_body = world.CreateBody(type=b2_dynamicBody,
-                                    position=random_vector(),
-                                    fixtures=triangle,
-                                    fixedRotation=True,  # <--
-                                    )
-        # note that the large triangle will not rotate
-
-        # Small box
-        box = b2FixtureDef(
-            shape=b2PolygonShape(box=(1, 0.5)),
-            density=1,
-            restitution=0.1,
-        )
-
-        world.CreateBody(
-            type=b2_dynamicBody,
-            position=random_vector(),
-            fixtures=box,
-        )
-
-        # Large box
-        box.shape.box = (2, 1)
-        world.CreateBody(
-            type=b2_dynamicBody,
-            position=random_vector(),
-            fixtures=box,
-        )
-# """
         # Small circle
         circle = b2FixtureDef(
             shape=b2CircleShape(radius=1),
             density=1,
         )
 
-        world.CreateBody(
-            type=b2_dynamicBody,
-            position=random_vector(),
-            fixtures=circle,
-        )
 
         # Large circle
         circle.shape.radius *= 2
         world.CreateBody(
             type=b2_dynamicBody,
-            position=random_vector(),
+            #position=random_vector(),
+            position=(10, 0),
             fixtures=circle,
         )
 
@@ -384,7 +348,7 @@ class CollisionProcessing(CustomPygameFramework):
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
 
-        main_3('rrrrr.png')
+        main_3('rrrrr.png', agent=self.agent)
         #self.get_image()
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass
