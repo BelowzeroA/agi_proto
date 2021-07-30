@@ -8,6 +8,7 @@ from neuro.neuron import Neuron
 class NeuroContainer:
 
     def __init__(self):
+        self.network = None
         self.neurons = []
         self.areas = []
         self.connections = []
@@ -17,6 +18,9 @@ class NeuroContainer:
 
     def get_area_neurons(self, area: NeuralArea) -> List[Neuron]:
         return [n for n in self.neurons if n.area == area]
+
+    def get_outgoing_connections(self, neuron: Neuron) -> List[Connection]:
+        return [c for c in self.connections if c.source == neuron]
 
     def next_neuron_id(self):
         if len(self.neurons) == 0:
