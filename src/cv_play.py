@@ -541,7 +541,6 @@ def main_3(filename=None, agent=None):
                 temp_dict = {}
                 temp_dict['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
                 obj_data.append(temp_dict)
-                print(obj_data)
                 data.append(obj_data)
     agent.env_step(data)
 
