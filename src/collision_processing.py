@@ -271,7 +271,8 @@ class CollisionProcessing(CustomPygameFramework):
         triangle_left = world.CreateBody(
             type=b2_dynamicBody,
             #type=b2_kinematicBodyз,
-            position=(self.x_offset, self.y_offset),
+            #position=(self.x_offset, self.y_offset),
+            position=(self.x_offset, 0),
             fixtures=triangle,
             gravityScale=0.0,
             awake=True,

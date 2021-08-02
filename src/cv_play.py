@@ -323,6 +323,43 @@ def into_roi_square(point, x_left, x_right, y_bottom, y_top):
     return x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top
 
 
+def is_three_points_belong_to_the_same_shape(p1, p2, p3, img):
+    x_mean = (p1 + p2 + p3) / 3
+    if np.any(img[int(x_mean[1]), int(x_mean[0])] != np.array([0, 0, 0], dtype=np.int8)):
+        return img[int(x_mean[1]), int(x_mean[0])]
+    else:
+        return False
+
+
+def is_color(all_shapes, color):
+    for ind in range(len(all_shapes)):
+        if np.all(all_shapes[ind]['color'] == color):
+            return ind
+    return -1
+
+
+def split_shapes(approx_contour, img):
+    all_shapes = []
+    quantity_points = len(approx_contour)
+    for ind in range(len(approx_contour)):
+        p1 = approx_contour[ind]
+        p2 = approx_contour[(ind + 1) % quantity_points]
+        p3 = approx_contour[(ind + 2) % quantity_points]
+        triple_res = is_three_points_belong_to_the_same_shape(p1, p2, p3, img)
+        if np.any(triple_res != False):
+            ind_color = is_color(all_shapes, triple_res)
+            if ind_color != -1:
+                for point in (p1, p2, p3):
+                    if list(point) not in [list(i) for i in all_shapes[ind_color]['points']]:
+                        all_shapes[ind_color]['points'].append(point)
+            else:
+                temp_dict = {}
+                temp_dict['color'] = triple_res
+                temp_dict['points'] = [p1, p2, p3]
+                all_shapes.append(temp_dict)
+    return all_shapes
+
+
 def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
     quadrant_norm = 1.42 * quadrant_size
     result = {}
@@ -439,26 +476,6 @@ def main():
     cv.destroyAllWindows()
 
 
-def zoom_roi(roi, approx_contour, contour):
-    x_left = roi[0] - 3
-    x_right = roi[0] + 1
-    y_top = roi[1] + 2
-    y_bottom = roi[1] - 2
-    approx_contour_points_into_square = []
-    res = []
-    res_indicate = []
-    for point in approx_contour:
-        if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
-            approx_contour_points_into_square.append(point)
-    for point in contour:
-        if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
-            if point[0] == x_left or point[0] == x_right or point[1] == y_top or point[1] == y_bottom:
-                res.append(point)
-                res_indicate.append(1)
-            elif point in approx_contour_points_into_square:
-                res.append(point)
-                res_indicate.append(0)
-
 
 def main_3(filename=None, agent=None):
     if not filename:
@@ -482,40 +499,43 @@ def main_3(filename=None, agent=None):
             #    continue
             arrow_contour = np.squeeze(contours[ind])
             # polygonize the rounded square
-            approx_contour = approximate_polygon(arrow_contour, tolerance=2.5)
-            approx_contour = [point for point in approx_contour if list(point) not in [[0, 440], [639, 440]]]
-            # print('approx_contour', approx_contour)
-            # compute the ROI centers
-            if len(approx_contour) <= 2:
-                continue
-            roi = find_roi(approx_contour)
-            """
-            cv.imshow('roi0', cv.resize(img_gray[(roi[0][1]) - 20:roi[0][1] + 20,
-                                          roi[0][0] - 20: roi[0][0] + 20,
-                                          ], (120, 120), cv.INTER_NEAREST))
-            cv.imshow('roi1', cv.resize(img_gray[(roi[1][1]) - 20:roi[1][1] + 20,
-                                          roi[1][0] - 20: roi[1][0] + 20,
-                                          ], (120, 120), cv.INTER_NEAREST))
-            cv.imshow('roi2', cv.resize(img_gray[(roi[2][1]) - 20:roi[2][1] + 20,
-                                          roi[2][0] - 20: roi[2][0] + 20,
-                                          ], (120, 120), cv.INTER_NEAREST))
-            cv.imshow('roi3', cv.resize(img_gray[(roi[3][1]) - 20:roi[3][1] + 20,
-                                          roi[3][0] - 20: roi[3][0] + 20,
-                                          ], (120, 120), cv.INTER_NEAREST))
-            """
-            for point in roi[:-1]:
-                obj_data.append(
-                    quadrant_roi_analysis(point, approx_contour, contours[1], 20, img)
-                )
-                cv.circle(img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+            approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
+            line = split_shapes(approx_contours, img)
+            for approx_contour in line:
+                obj_data = []
+                approx_contour = approx_contour['points']
+                # print('approx_contour', approx_contour)
+                # compute the ROI centers
+                if len(approx_contour) <= 2:
+                    continue
+                roi = find_roi(approx_contour)
+                """
+                cv.imshow('roi0', cv.resize(img_gray[(roi[0][1]) - 20:roi[0][1] + 20,
+                                              roi[0][0] - 20: roi[0][0] + 20,
+                                              ], (120, 120), cv.INTER_NEAREST))
+                cv.imshow('roi1', cv.resize(img_gray[(roi[1][1]) - 20:roi[1][1] + 20,
+                                              roi[1][0] - 20: roi[1][0] + 20,
+                                              ], (120, 120), cv.INTER_NEAREST))
+                cv.imshow('roi2', cv.resize(img_gray[(roi[2][1]) - 20:roi[2][1] + 20,
+                                              roi[2][0] - 20: roi[2][0] + 20,
+                                              ], (120, 120), cv.INTER_NEAREST))
+                cv.imshow('roi3', cv.resize(img_gray[(roi[3][1]) - 20:roi[3][1] + 20,
+                                              roi[3][0] - 20: roi[3][0] + 20,
+                                              ], (120, 120), cv.INTER_NEAREST))
+                """
+                for point in roi[:-1]:
+                    obj_data.append(
+                        quadrant_roi_analysis(point, approx_contour, contours[1], 20, img)
+                    )
+                    cv.circle(img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
 
-            for point in approx_contour:
-                # small black dots - points after polygonizing
-                cv.circle(img, (point[0], point[1]), 2, (0, 255, 0), -1)
-            # cv.drawContours(img, [approx_arrow_contour], -1, (0, 255, 0), 3)
-            #cv.imwrite('contoured.jpg', img)
-            cv.imshow('Image', img)
-            data.append(obj_data)
+                for point in approx_contour:
+                    # small black dots - points after polygonizing
+                    cv.circle(img, (point[0], point[1]), 2, (0, 255, 0), -1)
+                # cv.drawContours(img, [approx_arrow_contour], -1, (0, 255, 0), 3)
+                #cv.imwrite('contoured.jpg', img)
+                cv.imshow('Image', img)
+                data.append(obj_data)
     agent.env_step(data)
 
     cv.waitKey(0)
