@@ -139,7 +139,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.renderer = CustomDraw(surface=self.screen, test=self)
         #print(self.setCenter(self.world.bodies[0].worldCenter))
         self.world.renderer = self.renderer
-        self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'close.jpg'))
+        self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
+        self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 10, self.hand.get_height() // 10))
 
     def run(self):
         """
@@ -162,7 +163,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             running = self.checkEvents()
             self.screen.fill((0, 0, 0))
 
-            self.hand.set_colorkey((255, 255, 255))
+            #self.hand.set_colorkey((255, 255, 255))
             hand = self.hand.get_rect(center=(50, 50))
             self.screen.blit(self.hand, hand)
 
