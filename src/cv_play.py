@@ -231,7 +231,7 @@ def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
     approx_contour_points_into_square = []
     res = []
     segmetnts = []
-    for point in approx_contour[:-1]:
+    for point in approx_contour:
         if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
             approx_contour_points_into_square.append(point)
     for point in contour:
@@ -325,7 +325,9 @@ def into_roi_square(point, x_left, x_right, y_bottom, y_top):
 
 def is_three_points_belong_to_the_same_shape(p1, p2, p3, img):
     x_mean = (p1 + p2 + p3) / 3
-    if np.any(img[int(x_mean[1]), int(x_mean[0])] != np.array([0, 0, 0], dtype=np.int8)):
+    if int(x_mean[1]) == 440:
+        return False
+    elif np.any(img[int(x_mean[1]), int(x_mean[0])] != np.array([0, 0, 0], dtype=np.int8)):
         return img[int(x_mean[1]), int(x_mean[0])]
     else:
         return False
@@ -340,8 +342,8 @@ def is_color(all_shapes, color):
 
 def split_shapes(approx_contour, img):
     all_shapes = []
-    quantity_points = len(approx_contour)
-    for ind in range(len(approx_contour)):
+    quantity_points = len(approx_contour[:-1])
+    for ind in range(len(approx_contour[:-1])):
         p1 = approx_contour[ind]
         p2 = approx_contour[(ind + 1) % quantity_points]
         p3 = approx_contour[(ind + 2) % quantity_points]
@@ -379,7 +381,8 @@ def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
     #    if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
     #        approx_contour_points_into_square.append(point)
     a = list(approx_contour[0])
-    approx_contour = list(approx_contour[:-1])
+    #approx_contour = list(approx_contour[:-1])
+    approx_contour = list(approx_contour)
     approx_contour.append(a)
     for ind in range(1, len(approx_contour)):
         min_res = []
@@ -439,7 +442,6 @@ def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
     return result
 
 
-
 def main():
     filename = 'pics/ScreenShot2.png'
     img = cv.imread(filename)
@@ -492,7 +494,6 @@ def main_3(filename=None, agent=None):
     contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
     data = []
     if len(contours) != 0:
-        print(len(contours))
         for ind in range(len(contours)):
             obj_data = []
             #if ind in [1, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16]:
@@ -523,7 +524,11 @@ def main_3(filename=None, agent=None):
                                               roi[3][0] - 20: roi[3][0] + 20,
                                               ], (120, 120), cv.INTER_NEAREST))
                 """
-                for point in roi[:-1]:
+                x_mean = 0
+                y_mean = 0
+                for point in roi:
+                    x_mean += point.args[0]
+                    y_mean += point.args[1]
                     obj_data.append(
                         quadrant_roi_analysis(point, approx_contour, contours[1], 20, img)
                     )
@@ -532,9 +537,11 @@ def main_3(filename=None, agent=None):
                 for point in approx_contour:
                     # small black dots - points after polygonizing
                     cv.circle(img, (point[0], point[1]), 2, (0, 255, 0), -1)
-                # cv.drawContours(img, [approx_arrow_contour], -1, (0, 255, 0), 3)
-                #cv.imwrite('contoured.jpg', img)
                 cv.imshow('Image', img)
+                temp_dict = {}
+                temp_dict['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+                obj_data.append(temp_dict)
+                print(obj_data)
                 data.append(obj_data)
     agent.env_step(data)
 

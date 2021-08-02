@@ -45,7 +45,7 @@ def main():
 
     network.reset()
 
-    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=0.5)
+    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=0.1)
     receptive_area.activate_firing_pattern(new_pattern)
     presentation_area.active_pattern = None
     network.run(max_iter=50)
