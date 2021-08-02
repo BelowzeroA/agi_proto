@@ -430,7 +430,7 @@ def quadrant_roi_analysis(roi, approx_contour, contour, quadrant_size, img):
             continue
         if True:
             x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
-            y_mean = round((res[ind][1] + res[ind - 1][1]) / 2)
+            y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
             try_point = shapely.geometry.Point(x_mean + 3, y_mean)
             if polygon.contains(try_point):
                 result['color'] = img[y_mean, x_mean + 3]

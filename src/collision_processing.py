@@ -18,6 +18,8 @@
 # misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
 
+import os
+
 import pyglet
 import pygame
 import numpy as np
@@ -30,6 +32,8 @@ import cv2 as cv
 from cv_play import main_2, main_3
 from agent import Agent
 
+
+ABSOLUTE_PATH = os.path.abspath('agi_proto')
 
 try:
     from .pygame_gui import (fwGUI, gui)
@@ -135,6 +139,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.renderer = CustomDraw(surface=self.screen, test=self)
         #print(self.setCenter(self.world.bodies[0].worldCenter))
         self.world.renderer = self.renderer
+        self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'close.jpg'))
 
     def run(self):
         """
@@ -156,6 +161,10 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         while running:
             running = self.checkEvents()
             self.screen.fill((0, 0, 0))
+
+            self.hand.set_colorkey((255, 255, 255))
+            hand = self.hand.get_rect(center=(50, 50))
+            self.screen.blit(self.hand, hand)
 
             # Check keys that should be checked every loop (not only on initial
             # keydown)
