@@ -140,19 +140,7 @@ class ImageProcessor():
 
         # alternatively, the ROI centers are the points that don't belong to any group (standalone points)
         roi_centers.extend(points)
-
         return roi_centers
-
-
-    #def find_nozero_ind(our_screen):
-    #   print(type(our_screen))
-    #    res = []
-    #    for i in range(our_screen.shape[0]):
-    #        for j in range(our_screen.shape[1]):
-    #            if our_screen[i][j] != 0:
-    #                res.append((i, j))
-    #    return res
-
 
     def point_orientation(self, vec_point_1, vec_point_2, point):
         '''
@@ -168,7 +156,6 @@ class ImageProcessor():
                 (point[1] - vec_point_1[1]) * (vec_point_2[0] - point[0])
         )
 
-
     def is_point_inside_polygon(self, list_of_obj_points, point):
         """
         :param list_of_obj_points: список точек полигона
@@ -178,7 +165,6 @@ class ImageProcessor():
         polygon = shapely.geometry.polygon.Polygon(list_of_obj_points)
         point = shapely.geometry.Point(point)
         return polygon.contains(point)
-
 
     def while_quadrant(self, roi, p1, p2):
         dx_1 = roi[0] - p1[0]
@@ -210,19 +196,6 @@ class ImageProcessor():
         b = np.array([5, 0])
         return round(self.ALPHA * np.arccos(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))))
 
-
-    # def filter(points_list, threshold):
-    #    res = []
-    #    len_lp = len(points_list)
-    #    for i in range(len_lp):
-    #        for j in range(i + 1, len_lp):
-    #            res.append(((points_list[i][0] - points_list[j][0]) ** 2 +
-    #                       (points_list[i][1] - points_list[j][1]) ** 2) ** (1/2))
-    #    min_dist = min(res)
-    #    for ind in range(len(res)):
-    #        if ind / min_dist > threshold:
-
-    ######
     def into_segment(self, list_x, list_y, p1, p2):
         x = p1[0]
         y = p2[0]
@@ -391,7 +364,6 @@ class ImageProcessor():
                             self.quadrant_roi_analysis(point, approx_contour, contours[1], 20, self.img)
                         )
                         cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
-
                     for point in approx_contour:
                         # small black dots - points after polygonizing
                         cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
