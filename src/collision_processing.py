@@ -27,7 +27,7 @@ from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
 import cv2 as cv
 
-from cv_play import main_2, main_3
+from cv_play import ImageProcessor
 from agent import Agent
 
 
@@ -348,8 +348,8 @@ class CollisionProcessing(CustomPygameFramework):
         # are touching heavier bodies.
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
-
-        main_3('rrrrr.png', agent=self.agent)
+        img_processor = ImageProcessor('rrrrr.png')
+        img_processor.run()
         #self.get_image()
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass
