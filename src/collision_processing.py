@@ -200,6 +200,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
 
 class CollisionProcessing(CustomPygameFramework):
     agent = Agent()
+    last_step = None
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
@@ -345,7 +346,6 @@ class CollisionProcessing(CustomPygameFramework):
         return buffer
 
     def Step(self, settings):
-
         # We are going to destroy some bodies according to contact
         # points. We must buffer the bodies that should be destroyed
         # because they may belong to multiple contact points.
@@ -364,7 +364,8 @@ class CollisionProcessing(CustomPygameFramework):
                                                               self.hand_rect.topleft[1],
                                                               self.hand_rect.size[0],
                                                               self.hand_rect.size[1]))
-        img_processor.run()
+        self.cur_step = img_processor.run(self.last_step)
+        self.last_step = [obj['center'] for obj in self.cur_step]
         #self.get_image()
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass

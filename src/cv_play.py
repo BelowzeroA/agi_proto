@@ -267,10 +267,13 @@ class ImageProcessor():
                     all_shapes.append(temp_dict)
         return all_shapes
 
-    def quadrant_roi_analysis(self, roi, approx_contour, contour, quadrant_size, img):
+    def quadrant_roi_analysis(self, roi, approx_contour, quadrant_size, img):
         quadrant_norm = 1.42 * quadrant_size
         result = {}
-        result['roi'] = roi.args
+        try:
+            result['roi'] = roi.args
+        except AttributeError:
+            pass
         result['quadrants'] = [[], [], [], []]
         polygon = geometry.polygon.Polygon(approx_contour)
         x_left = roi[0] - quadrant_size
@@ -352,20 +355,19 @@ class ImageProcessor():
             point_max[0] <= self.arm_size[0] + self.arm_size[2]  and
             point_max[1] <= self.arm_size[1] + self.arm_size[3])
 
-    def f(self, vec, threshold=0.35):
-        point_max = np.max(vec, axis=0)
-        point_min = np.min(vec, axis=0)
-        print(self.distance(point_min, point_max))
+    def general_presentation(self, vec, point_min, point_max, threshold=0.35):
+        #point_max = np.max(vec, axis=0)
+        #point_min = np.min(vec, axis=0)
         threshold = threshold * self.distance(point_min, point_max)
         res = [vec[0], ]
         flag = 0
         ind = 0
-        while ind < len(vec) - 1:
-            if ind == len(vec) - 3:
+        while ind < len(vec):
+            if ind == len(vec) - 2:
                 p1 = vec[ind]
                 p2 = vec[ind + 1]
                 p3 = vec[0]
-            elif ind == len(vec) - 2:
+            elif ind == len(vec) - 1:
                 p1 = vec[ind]
                 p2 = vec[0]
                 p3 = vec[1]
@@ -385,10 +387,10 @@ class ImageProcessor():
             if flag > 1:
                 res[-1] = p3
             ind += 1
-        return res
+        return res[:-1]
 
 
-    def run(self):
+    def run(self, last_position=None):
         ret, thresh = cv.threshold(self.img_gray, 0, 200, 0)
         contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
         data = []
@@ -401,7 +403,7 @@ class ImageProcessor():
                 if not self.is_it_in_arm_size(approx_contours):
                     line = self.split_shapes(approx_contours, self.img)
                 else:
-                    line = [approx_contours]
+                    line = [approx_contours[:-1]]
                 for approx_contour in line:
                     obj_data = {}
                     obj_data['rois'] = []
@@ -412,14 +414,13 @@ class ImageProcessor():
                     if len(approx_contour) <= 2:
                         continue
                     roi = self.find_roi(approx_contour)
-                    print(self.f(approx_contour))
                     x_mean = 0
                     y_mean = 0
                     for point in roi:
                         x_mean += point.args[0]
                         y_mean += point.args[1]
                         obj_data['rois'].append(
-                            self.quadrant_roi_analysis(point, approx_contour, contours[1], 20, self.img)
+                            self.quadrant_roi_analysis(point, approx_contour, 20, self.img)
                         )
                         cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
                     for point in approx_contour:
@@ -427,8 +428,37 @@ class ImageProcessor():
                         cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
                     cv.imshow('Image', self.img)
                     obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+                    '''
+                    cv.imshow('roi0', cv.resize(self.img_gray[obj_data['center'][1] - 20:obj_data['center'][1],
+                                                obj_data['center'][0]: obj_data['center'] [0] + 20,
+                                                ], (600, 600), cv.INTER_NEAREST))
+                    cv.imshow('roi1', cv.resize(self.img_gray[obj_data['center'][1] - 20:obj_data['center'][1],
+                                                obj_data['center'][0] - 20: obj_data['center'][0],
+                                                ], (600, 600), cv.INTER_NEAREST))
+                    cv.imshow('roi2', cv.resize(self.img_gray[obj_data['center'][1]:obj_data['center'][1] + 20,
+                                                obj_data['center'][0] - 20: obj_data['center'][0],
+                                                ], (600, 600), cv.INTER_NEAREST))
+                    cv.imshow('roi3', cv.resize(self.img_gray[obj_data['center'][1]:obj_data['center'][1] + 20,
+                                                obj_data['center'][0]: obj_data['center'][0] + 20,
+                                                ], (600, 600), cv.INTER_NEAREST))
+                    '''
+                    point_max = np.max(approx_contour, axis=0)
+                    point_min = np.min(approx_contour, axis=0)
+                    dist = np.max(point_max - point_min) // 2 + 2
+                    obj_data['general_presentation'] = self.quadrant_roi_analysis(
+                        obj_data['center'],
+                        self.general_presentation(approx_contour,
+                                                  point_min,
+                                                  point_max),
+                        dist,
+                        self.img)
                     data.append(obj_data)
+        if last_position:
+            for obj, last_center in zip(data, last_position):
+                obj['offset'] = (obj['center'][0] - last_center[0],
+                                 obj['center'][1] - last_center[1])
         #agent.env_step(data)
         cv.waitKey(0)
         cv.destroyAllWindows()
+        print(data)
         return data
