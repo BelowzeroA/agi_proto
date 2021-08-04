@@ -29,11 +29,12 @@ from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
 import cv2 as cv
 
-from cv_play import main_2, main_3
+from cv_play import ImageProcessor
 from agent import Agent
 
 
 ABSOLUTE_PATH = os.path.abspath('agi_proto')
+
 
 try:
     from .pygame_gui import (fwGUI, gui)
@@ -140,7 +141,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         #print(self.setCenter(self.world.bodies[0].worldCenter))
         self.world.renderer = self.renderer
         self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
-        self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 10, self.hand.get_height() // 10))
+        self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
 
     def run(self):
         """
@@ -164,8 +165,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             self.screen.fill((0, 0, 0))
 
             #self.hand.set_colorkey((255, 255, 255))
-            hand = self.hand.get_rect(center=(50, 50))
-            self.screen.blit(self.hand, hand)
+            self.hand_rect = self.hand.get_rect(topleft=(50, 10))
+            self.screen.blit(self.hand, self.hand_rect)
 
             # Check keys that should be checked every loop (not only on initial
             # keydown)
@@ -359,7 +360,11 @@ class CollisionProcessing(CustomPygameFramework):
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
 
-        main_3('rrrrr.png', agent=self.agent)
+        img_processor = ImageProcessor('rrrrr.png', arm_size=(self.hand_rect.topleft[0],
+                                                              self.hand_rect.topleft[1],
+                                                              self.hand_rect.size[0],
+                                                              self.hand_rect.size[1]))
+        img_processor.run()
         #self.get_image()
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass
