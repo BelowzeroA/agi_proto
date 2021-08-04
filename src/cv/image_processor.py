@@ -9,14 +9,22 @@ from shapely import geometry
 
 
 class ImageProcessor():
-    def __init__(self,
-                 filename='pics/test_picture_3.JPG'):
+    def __init__(self, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
         self.ALPHA = 180 / np.arccos(-1)
         self.img = cv.imread(filename)
         self.img_gray = cv.imread(filename, 0)
+        self.arm_size = arm_size
 
     def mean(self, lst: list) -> float:
         return sum(lst) / len(lst)
+
+    def distance(self, p1, p2):
+        p1 = np.array(p1)
+        p2 = np.array(p2)
+        return np.sqrt(np.sum((p2 - p1) ** 2))
+
+    def get_side(self, p1, p2, p3):
+        return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
 
     def segments_have_common_point(self, s1: Segment, s2: Segment) -> bool:
         return s1.p1 == s2.p1 or s1.p1 == s2.p2 or s1.p2 == s2.p1 or s1.p2 == s2.p2
@@ -259,10 +267,13 @@ class ImageProcessor():
                     all_shapes.append(temp_dict)
         return all_shapes
 
-    def quadrant_roi_analysis(self, roi, approx_contour, contour, quadrant_size, img):
+    def quadrant_roi_analysis(self, roi, approx_contour, quadrant_size, img):
         quadrant_norm = 1.42 * quadrant_size
         result = {}
-        result['roi'] = roi.args
+        try:
+            result['roi'] = roi.args
+        except AttributeError:
+            pass
         result['quadrants'] = [[], [], [], []]
         polygon = geometry.polygon.Polygon(approx_contour)
         x_left = roi[0] - quadrant_size
@@ -337,7 +348,49 @@ class ImageProcessor():
                     break
         return result
 
-    def run(self):
+    def is_it_in_arm_size(self, obj_points):
+        point_max = np.max(obj_points, axis=0)
+        point_min = np.min(obj_points, axis=0)
+        return (self.arm_size[0] <= point_min[0] and self.arm_size[1] <= point_min[1] and
+            point_max[0] <= self.arm_size[0] + self.arm_size[2]  and
+            point_max[1] <= self.arm_size[1] + self.arm_size[3])
+
+    def general_presentation(self, vec, point_min, point_max, threshold=0.35):
+        #point_max = np.max(vec, axis=0)
+        #point_min = np.min(vec, axis=0)
+        threshold = threshold * self.distance(point_min, point_max)
+        res = [vec[0], ]
+        flag = 0
+        ind = 0
+        while ind < len(vec):
+            if ind == len(vec) - 2:
+                p1 = vec[ind]
+                p2 = vec[ind + 1]
+                p3 = vec[0]
+            elif ind == len(vec) - 1:
+                p1 = vec[ind]
+                p2 = vec[0]
+                p3 = vec[1]
+            else:
+                p1 = vec[ind]
+                p2 = vec[ind + 1]
+                p3 = vec[ind + 2]
+            side = self.get_side(p1, p2, p3)
+            if self.distance(p1, p3) <= threshold and np.any(p2 != res[-1]) and side > 0:
+                res.append(p3)
+            elif np.any(res[-1] != p2):
+                res.append(p2)
+            if side > 0:
+                flag += 1
+            else:
+                flag = 0
+            if flag > 1:
+                res[-1] = p3
+            ind += 1
+        return res[:-1]
+
+
+    def run(self, last_position=None):
         ret, thresh = cv.threshold(self.img_gray, 0, 200, 0)
         contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
         data = []
@@ -347,11 +400,17 @@ class ImageProcessor():
                 arrow_contour = np.squeeze(contours[ind])
                 # polygonize the rounded square
                 approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
-                line = self.split_shapes(approx_contours, self.img)
+                if not self.is_it_in_arm_size(approx_contours):
+                    line = self.split_shapes(approx_contours, self.img)
+                else:
+                    line = [approx_contours[:-1]]
                 for approx_contour in line:
                     obj_data = {}
                     obj_data['rois'] = []
-                    approx_contour = approx_contour['points']
+                    try:
+                        approx_contour = approx_contour['points']
+                    except IndexError:
+                        pass
                     if len(approx_contour) <= 2:
                         continue
                     roi = self.find_roi(approx_contour)
@@ -361,7 +420,7 @@ class ImageProcessor():
                         x_mean += point.args[0]
                         y_mean += point.args[1]
                         obj_data['rois'].append(
-                            self.quadrant_roi_analysis(point, approx_contour, contours[1], 20, self.img)
+                            self.quadrant_roi_analysis(point, approx_contour, 20, self.img)
                         )
                         cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
                     for point in approx_contour:
@@ -369,8 +428,26 @@ class ImageProcessor():
                         cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
                     cv.imshow('Image', self.img)
                     obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+                    point_max = np.max(approx_contour, axis=0)
+                    point_min = np.min(approx_contour, axis=0)
+                    dist = np.max(point_max - point_min) // 2 + 2
+                    obj_data['general_presentation'] = self.quadrant_roi_analysis(
+                        obj_data['center'],
+                        self.general_presentation(approx_contour,
+                                                  point_min,
+                                                  point_max),
+                        dist,
+                        self.img)
                     data.append(obj_data)
-        #agent.env_step(data)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
+        if last_position:
+            for i in range(len(data)):
+                max = 1e9
+                for j in range(len(last_position)):
+                    dist = self.distance(data[i]['center'], last_position[j])
+                    if dist < max:
+                        max = dist
+                        data[i]['offset'] = (data[i]['center'][0] - last_position[j][0],
+                                             data[i]['center'][1] - last_position[j][1])
+
+        #agent.env_step(data)w
         return data

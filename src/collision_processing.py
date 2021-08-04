@@ -189,6 +189,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
 
 class CollisionProcessing(CustomPygameFramework):
     agent = Agent()
+    last_step = None
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
@@ -349,7 +350,8 @@ class CollisionProcessing(CustomPygameFramework):
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
         img_processor = ImageProcessor('rrrrr.png')
-        img_processor.run()
+        self.cur_step = img_processor.run(self.last_step)
+        self.last_step = [obj['center'] for obj in self.cur_step]
         #self.get_image()
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass
