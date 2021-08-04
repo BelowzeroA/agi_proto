@@ -27,7 +27,7 @@ from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
 import cv2 as cv
 
-from cv_play import ImageProcessor
+from cv.image_processor import ImageProcessor
 from agent import Agent
 
 
