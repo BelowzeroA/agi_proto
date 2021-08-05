@@ -248,6 +248,9 @@ class ImageProcessor():
 
     def split_shapes(self, approx_contour, img):
         all_shapes = []
+        approx_contour = [point for point in approx_contour if not (point[0] == 0 and point[1] == 440)
+                          and not (point[0] == 639 and point[1] == 440)
+                          ]
         quantity_points = len(approx_contour[:-1])
         for ind in range(len(approx_contour[:-1])):
             p1 = approx_contour[ind]
