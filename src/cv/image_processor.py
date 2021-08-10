@@ -355,7 +355,7 @@ class ImageProcessor():
         point_max = np.max(obj_points, axis=0)
         point_min = np.min(obj_points, axis=0)
         return (self.arm_size[0] <= point_min[0] and self.arm_size[1] <= point_min[1] and
-            point_max[0] <= self.arm_size[0] + self.arm_size[2]  and
+            point_max[0] <= self.arm_size[0] + self.arm_size[2] and
             point_max[1] <= self.arm_size[1] + self.arm_size[3])
 
     def general_presentation(self, vec, point_min, point_max, threshold=0.35):
@@ -452,5 +452,5 @@ class ImageProcessor():
                         data[i]['offset'] = (data[i]['center'][0] - last_position[j][0],
                                              data[i]['center'][1] - last_position[j][1])
 
-        #agent.env_step(data)w
+        #self.agent.env_step(data)
         return data
