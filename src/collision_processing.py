@@ -27,13 +27,15 @@ import Box2D
 from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
-import cv2 as cv
+from pygame.locals import (QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN,
+                           MOUSEBUTTONUP, MOUSEMOTION, KMOD_LSHIFT)
 
 from cv_play import ImageProcessor
 from agent import Agent
 
 
 ABSOLUTE_PATH = os.path.abspath('agi_proto')
+HZ = 34
 
 
 try:
@@ -73,16 +75,28 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
         if len(vertices) == 2:
             pygame.draw.aaline(self.surface, color, vertices[0], vertices[1])
         else:
+            v = center_of_mass(vertices)
             for ind in range(len(self.test.world.bodies)):
                 u = our_zoom(self.test.world.bodies[ind].worldCenter)
-                v = center_of_mass(vertices)
                 if self.EPS > abs(u[0] - v[0]) and self.EPS > abs(u[0] - v[0]):
                     color = self.test.our_color[ind]
-            pygame.draw.polygon(self.surface, color, vertices, 0)
+            temp = []
+            for p in vertices:
+                if p[1] - v[1] < 0:
+                    if p[0] - v[0] < 0:
+                        temp.append((p[0] + 3, p[1] + 3))
+                    else:
+                        temp.append((p[0] - 3, p[1] + 3))
+                else:
+                    if p[0] - v[0] < 0:
+                        temp.append((p[0] + 3, p[1] - 4))
+                    else:
+                        temp.append((p[0] - 3, p[1] - 4))
+            pygame.draw.polygon(self.surface, color, temp, 0)
 
             #print(our_zoom(self.test.world.bodies[5].worldCenter))
             #print(center_of_mass(vertices))
-            pygame.draw.polygon(self.surface, b2Color(0.9, 0.7, 0.7), vertices, 1)
+            #pygame.draw.polygon(self.surface, b2Color(0.9, 0.7, 0.7), vertices, 1)
 
     def DrawSolidCircle(self, center, radius, axis, color):
         """
@@ -103,17 +117,13 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
             radius = int(radius)
 
         pygame.draw.circle(self.surface, color,
-                           center, radius, 0)
-        pygame.draw.circle(self.surface, b2Color(0.9, 0.7, 0.7), center, radius, 1)
-        pygame.draw.aaline(self.surface, (255, 0, 0), center,
-                           (center[0] - radius * axis[0],
-                            center[1] + radius * axis[1]))
+                           center, radius - 3, 0)
+        #pygame.draw.circle(self.surface, b2Color(0.9, 0.7, 0.7), center, radius, 1)
+        #pygame.draw.aaline(self.surface, (255, 0, 0), center,
+        #                   (center[0] - radius * axis[0],
+        #                    center[1] + radius * axis[1]))
 
-    def DrawCircle(self, center, radius, color, drawwidth=1):
-        """
-        Draw a wireframe circle given the center, radius, axis of orientation
-        and color.
-        """
+"""    def DrawCircle(self, center, radius, color, drawwidth=1):
         #print(len(self.test.world.bodies))
         #print(self.test.world.bodies[0])
         #for ind in range(len(self.test.world.bodies)):
@@ -130,7 +140,7 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
         else:
             radius = int(radius)
         pygame.draw.circle(self.surface, color,
-                           center, radius, drawwidth)
+                           center, radius, drawwidth)"""
 
 
 class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFramework):
@@ -142,6 +152,128 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.world.renderer = self.renderer
         self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
         self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
+        self.hand_rect = self.hand.get_rect(topleft=(310, 400))
+        self.min_ind = None
+
+    def checkEvents(self):
+        """
+        Check for pygame events (mainly keyboard/mouse events).
+        Passes the events onto the GUI also.
+        """
+        for event in pygame.event.get():
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
+                return False
+            elif event.type == KEYDOWN:
+                self._Keyboard_Event(event.key, down=True)
+            elif event.type == KEYUP:
+                self._Keyboard_Event(event.key, down=False)
+            elif event.type == MOUSEBUTTONDOWN:
+                p = self.ConvertScreenToWorld(*event.pos)
+                if event.button == 1:  # left
+                    mods = pygame.key.get_mods()
+                    if mods & KMOD_LSHIFT:
+                        self.ShiftMouseDown(p)
+                    else:
+                        self.MouseDown(p)
+                elif event.button == 2:  # middle
+                    pass
+                elif event.button == 3:  # right
+                    self.rMouseDown = True
+                elif event.button == 4:
+                    self.viewZoom *= 1.1
+                elif event.button == 5:
+                    self.viewZoom /= 1.1
+            elif event.type == MOUSEBUTTONUP:
+                p = self.ConvertScreenToWorld(*event.pos)
+                if event.button == 3:  # right
+                    self.rMouseDown = False
+                else:
+                    self.MouseUp(p)
+            elif event.type == MOUSEMOTION:
+                p = self.ConvertScreenToWorld(*event.pos)
+
+                self.MouseMove(p)
+
+                if self.rMouseDown:
+                    self.viewCenter -= (event.rel[0] /
+                                        5.0, -event.rel[1] / 5.0)
+
+            if GUIEnabled:
+                self.gui_app.event(event)  # Pass the event to the GUI
+
+        bt = pygame.key.get_pressed()
+        if bt[pygame.K_j]:
+            self.hand_rect.centerx -= 5
+            if self.hand_rect.left < 0:
+                self.hand_rect.left = 0
+            if self.min_ind:
+                self.world.bodies[self.min_ind].worldCenter[0] -= 0.5
+
+
+        elif bt[pygame.K_l]:
+            self.hand_rect.centerx += 5
+            if self.hand_rect.right > 639:
+                self.hand_rect.right = 639
+            if self.min_ind:
+                self.world.bodies[self.min_ind].worldCenter[0] += 0.5
+
+        elif bt[pygame.K_i]:
+            self.hand_rect.centery -= 5
+            if self.hand_rect.top < 0:
+                self.hand_rect.top = 0
+            if self.min_ind:
+                self.world.bodies[self.min_ind].worldCenter[1] += 0.5
+
+        elif bt[pygame.K_k]:
+            self.hand_rect.centery += 5
+            if self.hand_rect.bottom > 440:
+                self.hand_rect.bottom = 440
+            if self.min_ind:
+                self.world.bodies[self.min_ind].worldCenter[1] -= 0.5
+
+        if bt[pygame.K_n]:
+            print('Turn on')
+            if self.min_ind:
+                self.world.bodies[self.min_ind].gravityScale = 1.0
+                self.min_ind = None
+            else:
+                list_ind = []
+                for ind in range(len(self.world.bodies)):
+                    u = our_zoom(self.world.bodies[ind].worldCenter)
+                    dist = (abs(self.hand_rect.center[0] - u[0]) +
+                    abs(self.hand_rect.center[1] - u[1]))
+                    if dist < 20:
+                        list_ind.append((ind, dist))
+                if len(list_ind) > 0:
+                    self.min_ind = 0
+                    for ind in range(len(list_ind)):
+                        if list_ind[self.min_ind][1] > list_ind[ind][1]:
+                            self.min_ind = ind
+                    self.min_ind = list_ind[self.min_ind][0]
+                    self.world.bodies[self.min_ind].gravityScale = 0.0
+
+        if bt[pygame.K_e]:
+            if self.min_ind:
+                direction_by_x = 0
+                direction_by_y = 0
+                if bt[pygame.K_w]:
+                    direction_by_y += 10
+                if bt[pygame.K_s]:
+                    direction_by_y -= 10
+                if bt[pygame.K_a]:
+                    direction_by_x -= 10
+                if bt[pygame.K_d]:
+                    direction_by_x += 10
+                self.world.bodies[self.min_ind].gravityScale = 1.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = direction_by_x
+                self.world.bodies[self.min_ind].linearVelocity[1] = direction_by_y
+                self.min_ind = None
+
+
+
+
+
+        return True
 
     def run(self):
         """
@@ -165,8 +297,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             self.screen.fill((0, 0, 0))
 
             #self.hand.set_colorkey((255, 255, 255))
-            self.hand_rect = self.hand.get_rect(topleft=(50, 10))
-            self.screen.blit(self.hand, self.hand_rect)
+            #self.hand_rect = self.hand.get_rect(topleft=(50, 10))
 
             # Check keys that should be checked every loop (not only on initial
             # keydown)
@@ -177,16 +308,18 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
 
             if GUIEnabled and self.settings.drawMenu:
                 self.gui_app.paint(self.screen)
-
-            pygame.display.flip()
+            self.screen.blit(self.hand, self.hand_rect)
             pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
+            #pygame.display.flip()
+            pygame.display.update()
+
             #pygame.image.save(self.screen, '..rrrrr.png')
-            clock.tick(self.settings.hz)
+            clock.tick(HZ)
             self.fps = clock.get_fps()
 
-        self.world.contactListener = None
-        self.world.destructionListener = None
-        self.world.renderer = None
+        #self.world.contactListener = None
+        #self.world.destructionListener = None
+        #self.world.renderer = None
 
 
     def Print(self, str, color=(229, 153, 153, 255)):
@@ -244,40 +377,37 @@ class CollisionProcessing(CustomPygameFramework):
         c1 = b2Color(x, y, z)
         #""" Для того чтоб остались одни шары
         # Small triangle
-        triangle = b2FixtureDef(
-            shape=b2PolygonShape(vertices=[(-6, 0), (2, 0), (0, 4)]),
-            density=1,
-        )
+        #triangle = b2FixtureDef(
+        #    shape=b2PolygonShape(vertices=[(-6, 0), (2, 0), (0, 4)]),
+        #    density=1,
+        #)
+        #world.CreateBody(
+        #    type=b2_dynamicBody,
+        #    #position=random_vector(),
+        #    position=(2, 0),
+        #    fixtures=triangle,
+        #)
 
-        world.CreateBody(
-            type=b2_dynamicBody,
-            #position=random_vector(),
-            position=(2, 0),
-            fixtures=triangle,
-        )
-
-        # Small circle
         circle = b2FixtureDef(
-            shape=b2CircleShape(radius=1),
+            shape=b2CircleShape(radius=2),
             density=1,
+            restitution=0.5
         )
 
-
-        # Large circle
-        circle.shape.radius *= 2
         world.CreateBody(
             type=b2_dynamicBody,
             #position=random_vector(),
             position=(10, 0),
             fixtures=circle,
+            awake=True,
         )
 
-        vertices = [(0, 0), (-4, 0), (-2, 1), ]
+        vertices = [(0, 0), (-4, 0), (-2, 2), ]
         vertices = [(2 * x, 2 * y) for x, y in vertices]
         triangle = b2FixtureDef(
             shape=b2PolygonShape(vertices=vertices),
             density=10,
-            restitution=1
+            restitution=0.2
         )
 
         triangle_left = world.CreateBody(
@@ -286,7 +416,7 @@ class CollisionProcessing(CustomPygameFramework):
             #position=(self.x_offset, self.y_offset),
             position=(self.x_offset, 0),
             fixtures=triangle,
-            gravityScale=0.0,
+            gravityScale=1.0,
             awake=True,
         )
         triangle_left.My_color = (1, 1, 1)
@@ -294,42 +424,8 @@ class CollisionProcessing(CustomPygameFramework):
 
 
     def Keyboard(self, key):
-        try:
-            if key == Keys.K_a:
-                self.world.bodies[-1].worldCenter[0] -= 1
-                if self.grab:
-                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[0] -= 1
-            elif key == Keys.K_s:
-                self.world.bodies[-1].worldCenter[1] -= 1
-                if self.grab:
-                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[1] -= 1
-            elif key == Keys.K_d:
-                self.world.bodies[-1].worldCenter[0] += 1
-                if self.grab:
-                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[0] += 1
-            elif key == Keys.K_w:
-                self.world.bodies[-1].worldCenter[1] += 1
-                if self.grab:
-                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[1] += 1
-            elif key == Keys.K_q:
-                if self.grab:
-                    self.grab = False
-                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.gravityScale = 1.0
-                else:
-                    self.grab = True
-                    self.world.bodies[-1].contacts[0].contact.fixtureA.body.gravityScale = 0.0
-            elif key == Keys.K_e:
-                my_force = 5
-                delta_x = (self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[0] -
-                           self.world.bodies[-1].worldCenter[0])
-                delta_y = (self.world.bodies[-1].contacts[0].contact.fixtureA.body.worldCenter[1] -
-                           self.world.bodies[-1].worldCenter[1])
-                self.grab = False
-                self.world.bodies[-1].contacts[0].contact.fixtureA.body.gravityScale = 1.0
-                self.world.bodies[-1].contacts[0].contact.fixtureA.body.linearVelocity[0] = my_force * delta_x
-                self.world.bodies[-1].contacts[0].contact.fixtureA.body.linearVelocity[1] = - my_force * delta_y
-        except IndexError:
-            pass
+        pass
+
 
     def get_image0(self):
         buffer = pyglet.image.get_buffer_manager().get_color_buffer()
@@ -350,10 +446,14 @@ class CollisionProcessing(CustomPygameFramework):
         # points. We must buffer the bodies that should be destroyed
         # because they may belong to multiple contact points.
         nuke = []
+
         self.world.bodies[-1].awake = True
+        self.world.bodies[-2].awake = True
+        """
         self.world.bodies[-1].linearVelocity[0] = 0
         self.world.bodies[-1].linearVelocity[1] = 0
         self.world.bodies[-1].angularVelocity = 0
+        """
         #self.world.bodies[-1].inertia = 0.0
         # Traverse the contact results. Destroy bodies that
         # are touching heavier bodies.
