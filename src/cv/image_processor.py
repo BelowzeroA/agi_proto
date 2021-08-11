@@ -232,10 +232,22 @@ class ImageProcessor():
         return x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top
 
     def is_three_points_belong_to_the_same_shape(self, p1, p2, p3, img):
+        point_list = [list(p1), list(p2), list(p3)]
+        for point in point_list:
+            if point in [[0, 440], [639, 440]]:
+                return False
         x_mean = (p1 + p2 + p3) / 3
         if int(x_mean[1]) == 440:
             return False
         elif np.any(img[int(x_mean[1]), int(x_mean[0])] != np.array([0, 0, 0], dtype=np.int8)):
+            return img[int(x_mean[1]), int(x_mean[0])]
+        else:
+            return False
+
+    def is_two_points_belong_to_the_same_shape(self, p1, p2, img):
+        x_mean = (p1 + p2) / 2
+        res = []
+        if np.any(img[int(x_mean[1]), int(x_mean[0])] != np.array([0, 0, 0], dtype=np.int8)):
             return img[int(x_mean[1]), int(x_mean[0])]
         else:
             return False
@@ -278,77 +290,82 @@ class ImageProcessor():
         except AttributeError:
             pass
         result['quadrants'] = [[], [], [], []]
-        polygon = geometry.polygon.Polygon(approx_contour)
-        x_left = roi[0] - quadrant_size
-        x_right = roi[0] + quadrant_size - 1
-        y_top = roi[1] + quadrant_size - 1
-        y_bottom = roi[1] - quadrant_size
-        approx_contour_points_into_square = []
-        list_x = sorted([x_left, x_right, roi[0] - 1, roi[0]])
-        list_y = sorted([y_bottom, y_top, roi[1] - 1, roi[1]])
-        res = []
-        #segmetnts = []
-        #for point in approx_contour[:-1]:
-        #    if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
-        #        approx_contour_points_into_square.append(point)
-        a = list(approx_contour[0])
-        approx_contour = list(approx_contour)
-        approx_contour.append(a)
-        for ind in range(1, len(approx_contour)):
-            min_res = []
-            p1_flag = self.into_roi_square(approx_contour[ind - 1], x_left, x_right, y_bottom, y_top)
-            p2_flag = self.into_roi_square(approx_contour[ind], x_left, x_right, y_bottom, y_top)
-            if p1_flag or p2_flag:
-                if p1_flag:
-                    min_res.append(tuple(approx_contour[ind - 1]))
-                if p2_flag:
-                    min_res.append(tuple(approx_contour[ind]))
-                approx_list_x, approx_list_y = self.into_segment(list_x, list_y, approx_contour[ind - 1], approx_contour[ind])
-                if approx_list_x[0] == approx_contour[ind][0]:
-                    start_point = approx_contour[ind]
-                    end_point = approx_contour[ind - 1]
-                else:
-                    start_point = approx_contour[ind - 1]
-                    end_point = approx_contour[ind]
-                for x in approx_list_x[1:-1]:
-                    dx = x - start_point[0]
-                    y = (dx / (end_point[0] - start_point[0])) * (end_point[1] - start_point[1]) + start_point[1]
-                    min_res.append((x, round(y)))
-                for y in approx_list_y[1:-1]:
-                    dy = y - start_point[1]
-                    x = (dy / (end_point[1] - start_point[1])) * (end_point[0] - start_point[0]) + start_point[0]
-                    min_res.append((round(x), y))
-                min_res.sort()
-                res.extend(min_res)
-                res.append(0)
-        for ind in range(1, len(res)):
-            if res[ind] == 0 or res[ind - 1] == 0:
-                continue
-            quadrant_number = self.while_quadrant(roi, res[ind - 1], res[ind])
-            if quadrant_number == 5:
-                continue
-            if res[ind] == res[ind - 1]:
-                continue
-            our_line = {}
-            our_line['angle'] = self.get_corner(res[ind - 1], res[ind])
-            our_line['mass'] = self.get_mass(np.linalg.norm(np.array([res[ind][0] - res[ind - 1][0],
-                                                        res[ind][1] - res[ind - 1][1]], dtype=np.float32)) / quadrant_norm)
-            result['quadrants'][quadrant_number].append(our_line)
-        # for color
-        for ind in range(1, len(res)):
-            if res[ind] == 0 or res[ind - 1] == 0:
-                continue
-            if True:
-                x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
-                y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
-                try_point = shapely.geometry.Point(x_mean + 3, y_mean)
-                if polygon.contains(try_point):
-                    result['color'] = img[y_mean, x_mean + 3]
-                    break
-                try_point = shapely.geometry.Point(x_mean - 3, y_mean)
-                if polygon.contains(try_point):
-                    result['color'] = img[y_mean, x_mean - 3]
-                    break
+        try:
+            polygon = geometry.polygon.Polygon(approx_contour)
+            x_left = roi[0] - quadrant_size
+            x_right = roi[0] + quadrant_size - 1
+            y_top = roi[1] + quadrant_size - 1
+            y_bottom = roi[1] - quadrant_size
+            approx_contour_points_into_square = []
+            list_x = sorted([x_left, x_right, roi[0] - 1, roi[0]])
+            list_y = sorted([y_bottom, y_top, roi[1] - 1, roi[1]])
+            res = []
+            # segmetnts = []
+            # for point in approx_contour[:-1]:
+            #    if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
+            #        approx_contour_points_into_square.append(point)
+            a = list(approx_contour[0])
+            approx_contour = list(approx_contour)
+            approx_contour.append(a)
+            for ind in range(1, len(approx_contour)):
+                min_res = []
+                p1_flag = self.into_roi_square(approx_contour[ind - 1], x_left, x_right, y_bottom, y_top)
+                p2_flag = self.into_roi_square(approx_contour[ind], x_left, x_right, y_bottom, y_top)
+                if p1_flag or p2_flag:
+                    if p1_flag:
+                        min_res.append(tuple(approx_contour[ind - 1]))
+                    if p2_flag:
+                        min_res.append(tuple(approx_contour[ind]))
+                    approx_list_x, approx_list_y = self.into_segment(list_x, list_y, approx_contour[ind - 1],
+                                                                     approx_contour[ind])
+                    if approx_list_x[0] == approx_contour[ind][0]:
+                        start_point = approx_contour[ind]
+                        end_point = approx_contour[ind - 1]
+                    else:
+                        start_point = approx_contour[ind - 1]
+                        end_point = approx_contour[ind]
+                    for x in approx_list_x[1:-1]:
+                        dx = x - start_point[0]
+                        y = (dx / (end_point[0] - start_point[0])) * (end_point[1] - start_point[1]) + start_point[1]
+                        min_res.append((x, round(y)))
+                    for y in approx_list_y[1:-1]:
+                        dy = y - start_point[1]
+                        x = (dy / (end_point[1] - start_point[1])) * (end_point[0] - start_point[0]) + start_point[0]
+                        min_res.append((round(x), y))
+                    min_res.sort()
+                    res.extend(min_res)
+                    res.append(0)
+            for ind in range(1, len(res)):
+                if res[ind] == 0 or res[ind - 1] == 0:
+                    continue
+                quadrant_number = self.while_quadrant(roi, res[ind - 1], res[ind])
+                if quadrant_number == 5:
+                    continue
+                if res[ind] == res[ind - 1]:
+                    continue
+                our_line = {}
+                our_line['angle'] = self.get_corner(res[ind - 1], res[ind])
+                our_line['mass'] = self.get_mass(np.linalg.norm(np.array([res[ind][0] - res[ind - 1][0],
+                                                                          res[ind][1] - res[ind - 1][1]],
+                                                                         dtype=np.float32)) / quadrant_norm)
+                result['quadrants'][quadrant_number].append(our_line)
+            # for color
+            for ind in range(1, len(res)):
+                if res[ind] == 0 or res[ind - 1] == 0:
+                    continue
+                if True:
+                    x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
+                    y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
+                    try_point = shapely.geometry.Point(x_mean + 3, y_mean)
+                    if polygon.contains(try_point):
+                        result['color'] = img[y_mean, x_mean + 3]
+                        break
+                    try_point = shapely.geometry.Point(x_mean - 3, y_mean)
+                    if polygon.contains(try_point):
+                        result['color'] = img[y_mean, x_mean - 3]
+                        break
+        except ValueError:
+            pass
         return result
 
     def is_it_in_arm_size(self, obj_points):
@@ -403,6 +420,7 @@ class ImageProcessor():
                 arrow_contour = np.squeeze(contours[ind])
                 # polygonize the rounded square
                 approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
+
                 if not self.is_it_in_arm_size(approx_contours):
                     line = self.split_shapes(approx_contours, self.img)
                 else:
@@ -429,11 +447,14 @@ class ImageProcessor():
                     for point in approx_contour:
                         # small black dots - points after polygonizing
                         cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
-                    cv.imshow('Image', self.img)
+                    #cv.imshow('Image', self.img)
                     obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
                     point_max = np.max(approx_contour, axis=0)
                     point_min = np.min(approx_contour, axis=0)
                     dist = np.max(point_max - point_min) // 2 + 2
+                    width_height = point_max - point_min
+                    obj_data['width'] = width_height[0]
+                    obj_data['height'] = width_height[1]
                     obj_data['general_presentation'] = self.quadrant_roi_analysis(
                         obj_data['center'],
                         self.general_presentation(approx_contour,
@@ -443,14 +464,10 @@ class ImageProcessor():
                         self.img)
                     data.append(obj_data)
         if last_position:
-            for i in range(len(data)):
-                max = 1e9
-                for j in range(len(last_position)):
-                    dist = self.distance(data[i]['center'], last_position[j])
-                    if dist < max:
-                        max = dist
-                        data[i]['offset'] = (data[i]['center'][0] - last_position[j][0],
-                                             data[i]['center'][1] - last_position[j][1])
-
-        #self.agent.env_step(data)
+            for obj, last_center in zip(data, last_position):
+                obj['offset'] = (obj['center'][0] - last_center[0],
+                                 obj['center'][1] - last_center[1])
+            # agent.env_step(data)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
         return data
