@@ -1,28 +1,33 @@
+from neuro.container import NeuroContainer
 
-from neuro.container import Container
 
+class Network_legacy:
 
-class Network:
-
-    def __init__(self, container: Container):
+    def __init__(self, container: NeuroContainer):
         self.container = container
         self.current_tick = 0
         self.verbose = True
         self.container.network = self
 
     def step(self):
-        for area in self.container.areas:
-            area.update()
+        for neuron in self.container.neurons:
+            neuron.update()
+
+        for connection in self.container.connections:
+            connection.update_weight()
 
         for connection in self.container.connections:
             connection.update()
 
+        for area in self.container.areas:
+            area.update()
+
     def reset(self):
+        for neuron in self.container.neurons:
+            neuron.potential = 0
+
         for connection in self.container.connections:
             connection.pulsing = False
-
-        for area in self.container.areas:
-            area.inputs.clear()
 
     def run(self, max_iter=100):
         self.current_tick = 1

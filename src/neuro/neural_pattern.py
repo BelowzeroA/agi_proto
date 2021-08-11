@@ -1,17 +1,26 @@
-from typing import List
-
-from neuro.neuron import Neuron
+import random
 
 
 class NeuralPattern:
 
-    def __init__(self, neurons: List[Neuron], current_tick: int):
-        self.neurons = set(neurons)
-        self.start_activity_tick = current_tick
-        self.active = True
+    def __init__(self, space_size: int, value_size: int = 0, value=None):
+        if value:
+            self.value = value
+            self.value_size = len(value)
+        else:
+            self.value = []
+            self.value_size = value_size
+        self.space_size = space_size
 
-    def intersection(self, neurons):
-        return self.neurons.intersection(neurons)
+    def generate_random(self):
+        self.value = random.sample(range(self.space_size), self.value_size)
+        self.value.sort()
 
-    def is_in(self, neuron: Neuron):
-        return neuron in self.neurons
+    def _repr(self):
+        return f'{self.value}'
+
+    def __repr__(self):
+        return self._repr()
+
+    def __str__(self):
+        return self._repr()

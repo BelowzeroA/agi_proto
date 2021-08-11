@@ -3,8 +3,10 @@ import random
 from neuro.hyper_params import HyperParameters
 from neuro.neuron import Neuron
 
+LOWEST_WEIGHT = 0.1
 
-class Connection:
+
+class Connection_legacy:
 
     def __init__(self, source: Neuron, target: Neuron):
         self.source = source
@@ -31,8 +33,8 @@ class Connection:
                 self.weight -= HyperParameters.learning_rate
         if self.weight > 1:
             self.weight = 1
-        elif self.weight <= 0:
-            self.weight = 0.05
+        elif self.weight <= LOWEST_WEIGHT:
+            self.weight = LOWEST_WEIGHT
 
     def _repr(self):
         return f'{self.source} - {self.target}]'

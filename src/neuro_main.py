@@ -38,6 +38,8 @@ def main():
 
     network = Network(container=container)
 
+    shift = 0.1
+
     firing_pattern = make_firing_pattern(container, receptive_area)
     receptive_area.activate_firing_pattern(firing_pattern)
 
@@ -45,7 +47,25 @@ def main():
 
     network.reset()
 
-    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=0.1)
+    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=shift)
+    receptive_area.activate_firing_pattern(new_pattern)
+    presentation_area.active_pattern = None
+    network.run(max_iter=50)
+
+    network.reset()
+    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=shift)
+    receptive_area.activate_firing_pattern(new_pattern)
+    presentation_area.active_pattern = None
+    network.run(max_iter=50)
+
+    network.reset()
+    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=shift)
+    receptive_area.activate_firing_pattern(new_pattern)
+    presentation_area.active_pattern = None
+    network.run(max_iter=50)
+
+    network.reset()
+    new_pattern = change_firing_pattern(firing_pattern, container, receptive_area, coefficient=1.0)
     receptive_area.activate_firing_pattern(new_pattern)
     presentation_area.active_pattern = None
     network.run(max_iter=50)

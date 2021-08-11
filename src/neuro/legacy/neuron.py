@@ -1,12 +1,13 @@
 # from neuro.connection import Connection
+from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 
 
-class Neuron:
+class Neuron_legacy:
 
     def __init__(self, id: str, area: NeuralArea, container):
         self.id = id
-        self.threshold = 3
+        self.threshold = HyperParameters.default_neuron_threshold
         self.area = area
         self.container = container
         self.firing = False
