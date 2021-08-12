@@ -130,6 +130,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
         self.hand_rect = self.hand.get_rect(topleft=(310, 400))
         self.min_ind = None
+        self.pixel_array = None
 
     def checkEvents(self):
         """
@@ -276,7 +277,10 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.gui_app.paint(self.screen)
 
             self.screen.blit(self.hand, self.hand_rect)
-            pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
+            #pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
+            #self.bb = pygame.display.get_surface()
+            self.pixel_array = self.get_image(pygame.display.get_surface())
+            #print('ddddd', pygame.Color(self.pixel_array[10, 10]))
             # pygame.display.flip()
             pygame.display.update()
             clock.tick(HZ)
@@ -369,8 +373,21 @@ class CollisionProcessing(CustomPygameFramework):
     def Keyboard(self, key):
         pass
 
-    def get_image(self):
-        buffer = pygame.PixelArray(self.screen)
+    def get_image(self, pixel_array):
+        buffer = pygame.PixelArray(pixel_array)
+        res = np.zeros((480, 640, 4), dtype="uint8")
+        for i in range(buffer.shape[1]):
+            for j in range(buffer.shape[0]):
+                #for k in [1, 2, 3]:
+                #    res[i, j, k - 1] = pygame.Color(buffer[j, i])[k]
+                res[i, j, 3] = pygame.Color(buffer[j, i]).r
+                res[i, j, 2] = pygame.Color(buffer[j, i]).g
+                res[i, j, 1] = pygame.Color(buffer[j, i]).b
+        return res
+
+
+    def get_image(self, pixel_array):
+        buffer = pygame.surfarray.array3d(pixel_array)
         return buffer
 
     def Step(self, settings):
@@ -389,13 +406,16 @@ class CollisionProcessing(CustomPygameFramework):
         body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
                       for p in self.points]
 
-        img_processor = ImageProcessor('rrrrr.png', arm_size=(self.hand_rect.topleft[0],
-                                                              self.hand_rect.topleft[1],
-                                                              self.hand_rect.size[0],
-                                                              self.hand_rect.size[1]))
-        self.cur_step = img_processor.run(self.last_step)
-        self.last_step = [obj['center'] for obj in self.cur_step]
-        agent.env_step(self.cur_step)
+        #img_processor = ImageProcessor('rrrrr.png', arm_size=(self.hand_rect.topleft[0],
+        if np.all(self.pixel_array != None) and True:
+            img_processor = ImageProcessor(self.pixel_array, arm_size=(self.hand_rect.topleft[0],
+                                                                      self.hand_rect.topleft[1],
+                                                                      self.hand_rect.size[0],
+                                                                      self.hand_rect.size[1]))
+            self.cur_step = img_processor.run(self.last_step)
+            self.last_step = [obj['center'] for obj in self.cur_step]
+            agent.env_step(self.cur_step)
+
 
         #self.get_image()
         for body1, body2 in body_pairs:

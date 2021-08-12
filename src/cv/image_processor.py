@@ -11,8 +11,12 @@ from shapely import geometry
 class ImageProcessor():
     def __init__(self, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
         self.ALPHA = 180 / np.arccos(-1)
-        self.img = cv.imread(filename)
-        self.img_gray = cv.imread(filename, 0)
+        #self.img = cv.imread(filename)
+        #self.img_gray = cv.imread(filename, 0)
+        #self.img = cv.imread('rrrrr.png')
+        #print(self.img)
+        self.img = filename
+        self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         self.arm_size = arm_size
 
     def mean(self, lst: list) -> float:
@@ -422,7 +426,8 @@ class ImageProcessor():
                 approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
 
                 if not self.is_it_in_arm_size(approx_contours):
-                    line = self.split_shapes(approx_contours, self.img)
+                    #line = self.split_shapes(approx_contours, self.img)
+                    line = [approx_contours[:-1]]
                 else:
                     line = [approx_contours[:-1]]
                 for approx_contour in line:
