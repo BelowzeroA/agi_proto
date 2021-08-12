@@ -9,16 +9,29 @@ from neuro.sdr_processor import SDRProcessor
 
 class EncoderArea(NeuralArea):
 
-    def __init__(self, name: str, output_space_size: int, output_activity_norm: int, container):
+    def __init__(
+            self,
+            name: str,
+            output_space_size: int,
+            output_activity_norm: int,
+            container,
+            min_inputs: int = 1
+    ):
         super().__init__(name=name, container=container)
         self.output_space_size = output_space_size
         self.output_activity_norm = output_activity_norm
+        self.min_inputs = min_inputs
         self.processor = SDRProcessor(self)
         self.patterns: List[NeuralPattern] = []
         self.highway_connections = set()
 
     def update(self):
         self.output = None
+        alive_inputs = len([pattern for pattern in self.inputs if pattern])
+        if alive_inputs < self.min_inputs:
+            self.reset_inputs()
+            return
+
         combined_input = []
         shift = 0
         for i in range(len(self.inputs)):
@@ -32,15 +45,16 @@ class EncoderArea(NeuralArea):
             self.process_input(combined_pattern)
         else:
             self.output = None
-        # print(self.output)
+        self.reset_inputs()
+
+    def reset_inputs(self):
         self.inputs = [None for i in range(len(self.input_sizes))]
 
     def process_input(self, pattern: NeuralPattern) -> NeuralPattern:
         output_pattern = self.processor.process_input(pattern)
         if not self.output:
             print(f'[{self.name}]: New pattern has been created {output_pattern}')
+            agent = self.container.network.agent
+            agent.on_message('pattern_created')
         else:
             print(f'[{self.name}]: Existing pattern has been recognized {output_pattern}')
-
-[21, 77, 82, 119, 148, 150, 225, 259, 343, 407, 460, 514, 533, 554, 566, 567, 773, 811, 852, 885]
-[21, 77, 98, 119, 150, 171, 225, 252, 259, 331, 403, 408, 514, 533, 574, 773, 819, 820, 885, 890]

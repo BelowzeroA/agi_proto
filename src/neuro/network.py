@@ -4,8 +4,9 @@ from neuro.container import Container
 
 class Network:
 
-    def __init__(self, container: Container):
+    def __init__(self, container: Container, agent: 'Agent'):
         self.container = container
+        self.agent = agent
         self.current_tick = 0
         self.verbose = True
         self.container.network = self

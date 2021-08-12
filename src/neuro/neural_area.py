@@ -17,5 +17,13 @@ class NeuralArea:
     def report(self):
         pass
 
+    def _repr(self):
+        return f'[{self.name}]'
+
+    def __repr__(self):
+        return self._repr()
+
+    def __str__(self):
+        return self._repr()
 
 

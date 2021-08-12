@@ -14,8 +14,9 @@ class Agent:
         random.seed(0)
         self.container = Container()
         self._build_network()
-        self.network = Network(container=self.container)
+        self.network = Network(container=self.container, agent=self)
         self.focused_body_idx = None
+        self.surprise = 0
 
     def _build_network(self):
         self.primitives_receptive_area = PrimitivesReceptiveArea(name='primitives', container=self.container)
@@ -26,17 +27,26 @@ class Agent:
         self.shift_down_receptive_area = SpacialReceptiveArea(name='shift-down', container=self.container)
 
         self.presentation_area = EncoderArea(
-            name='shape-representations',
+            name='shape representations',
             output_space_size=HyperParameters.encoder_space_size,
             output_activity_norm=HyperParameters.encoder_activity_norm,
             container=self.container
         )
 
         self.place_presentation_area = EncoderArea(
-            name='place-representations',
+            name='place representations',
             output_space_size=HyperParameters.encoder_space_size,
             output_activity_norm=HyperParameters.encoder_activity_norm,
-            container=self.container
+            container=self.container,
+            min_inputs=2
+        )
+
+        self.combined_area = EncoderArea(
+            name='shape and place',
+            output_space_size=HyperParameters.encoder_space_size,
+            output_activity_norm=HyperParameters.encoder_activity_norm,
+            container=self.container,
+            min_inputs=2
         )
 
         self.container.add_area(self.shift_right_receptive_area)
@@ -46,6 +56,7 @@ class Agent:
         self.container.add_area(self.primitives_receptive_area)
         self.container.add_area(self.presentation_area)
         self.container.add_area(self.place_presentation_area)
+        self.container.add_area(self.combined_area)
 
         self.container.add_connection(
             source=self.primitives_receptive_area,
@@ -69,8 +80,21 @@ class Agent:
             target=self.place_presentation_area
         )
 
+        self.container.add_connection(
+            source=self.place_presentation_area,
+            target=self.combined_area
+        )
+        self.container.add_connection(
+            source=self.presentation_area,
+            target=self.combined_area
+        )
+
+    def on_message(self, data):
+        if data == 'pattern_created':
+            self.surprise += 1
+
     def activate_receptive_areas(self, data):
-        if len(data) == 0:
+        if len(data) == 0 or len(data) > 3:
             return
         previous_focused_body_idx = self.focused_body_idx
         if self.focused_body_idx is None:
@@ -109,12 +133,13 @@ class Agent:
         self.shift_up_receptive_area.activate_on_body(eye_shift_up)
         self.shift_down_receptive_area.activate_on_body(eye_shift_down)
 
-        # print(f'Receptive pattern {self.primitives_receptive_area.output}')
-        self.network.run(max_iter=2)
+        self.surprise = 0
+
+        self.network.run(max_iter=3)
         self.network.reset()
         self.presentation_area.active_pattern = None
 
     def env_step(self, data):
         self.activate_receptive_areas(data)
-        # self.network.run(max_iter=50)
+        print(f'Surprise: {self.surprise}')
 

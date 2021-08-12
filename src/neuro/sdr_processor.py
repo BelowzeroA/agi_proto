@@ -36,21 +36,18 @@ class SDRProcessor:
 
     def _get_raw_output(self, pattern: NeuralPattern) -> NeuralPattern:
         connections = []
-        output = []
         output_space_indexes = list(range(self.area.output_space_size))
-        if pattern.space_size < self.area.output_space_size:
-            # difference = self.area.output_space_size - pattern.space_size
-            # ratio = difference / pattern.space_size
-            # if ratio > 1:
-            ratio = 0.15 * (self.area.output_space_size * self.area.output_activity_norm) / pattern.value_size
-            int_ratio = int(ratio)
-            connection_density = int_ratio
-            for idx in range(pattern.space_size):
-                connections.append(random.sample(output_space_indexes, connection_density))
+        # if pattern.space_size < self.area.output_space_size:
+        ratio = 0.15 * (self.area.output_space_size * self.area.output_activity_norm) / pattern.value_size
+        connection_density = int(ratio)
+        for idx in range(pattern.space_size):
+            connections.append(random.sample(output_space_indexes, connection_density))
 
-            output, highway_connections = self._select_pattern(pattern, connections)
-            if len(output) > self.area.output_activity_norm:
-                output = random.sample(output, self.area.output_activity_norm)
+        output, highway_connections = self._select_pattern(pattern, connections)
+        if len(output) > self.area.output_activity_norm:
+            output = random.sample(output, self.area.output_activity_norm)
+        # else:
+        #     a = 0
         output.sort()
         return output, highway_connections
 
