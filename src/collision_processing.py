@@ -25,7 +25,7 @@ import pygame
 import numpy as np
 import Box2D
 from Box2D.examples.framework import Framework, main, Keys
-from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
+from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
 from pygame.locals import (QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN,
                            MOUSEBUTTONUP, MOUSEMOTION, KMOD_LSHIFT)
@@ -37,6 +37,7 @@ from agent import Agent
 ABSOLUTE_PATH = os.path.abspath('agi_proto')
 HZ = 34
 
+agent = Agent()
 
 try:
     from .pygame_gui import (fwGUI, gui)
@@ -128,9 +129,11 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.world.renderer = self.renderer
         self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
         self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
-        self.hand_rect = self.hand.get_rect(topleft=(310, 400))
+        self.hand_rect = self.hand.get_rect(topleft=(410, 350))
         self.min_ind = None
         self.pixel_array = None
+        self.arm_step = {'right': 0, 'up': 0}
+        self.f_sys = pygame.font.SysFont('arial', 12)
 
     def checkEvents(self):
         """
@@ -178,40 +181,63 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             if GUIEnabled:
                 self.gui_app.event(event)  # Pass the event to the GUI
 
+        right = 0
+        up = 0
+        rotation = 0
         bt = pygame.key.get_pressed()
-        if bt[pygame.K_j]:
+        if bt[pygame.K_e]:
+            if self.min_ind:
+                self.world.bodies[self.min_ind].gravityScale = 1.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+                self.min_ind = None
+
+        if bt[pygame.K_a]:
             self.hand_rect.centerx -= 5
+            right -= 10
             if self.hand_rect.left < 0:
                 self.hand_rect.left = 0
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[0] -= 0.5
 
-        elif bt[pygame.K_l]:
+        if bt[pygame.K_d]:
             self.hand_rect.centerx += 5
+            right += 10
             if self.hand_rect.right > 639:
                 self.hand_rect.right = 639
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[0] += 0.5
 
-        elif bt[pygame.K_i]:
+        if bt[pygame.K_w]:
             self.hand_rect.centery -= 5
+            up += 20
             if self.hand_rect.top < 0:
                 self.hand_rect.top = 0
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[1] += 0.5
 
-        elif bt[pygame.K_k]:
+        if bt[pygame.K_s]:
             self.hand_rect.centery += 5
+            up -= 10
             if self.hand_rect.bottom > 440:
                 self.hand_rect.bottom = 440
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[1] -= 0.5
 
-        if bt[pygame.K_q]:
-            print('Turn on')
+        if bt[pygame.K_m]:
+            rotation -= 5
             if self.min_ind:
-                self.world.bodies[self.min_ind].gravityScale = 1.0
-                self.min_ind = None
+                #self.world.bodies[self.min_ind].angle -= 0.5
+                self.world.bodies[self.min_ind].setTransform(0.5)
+
+        if bt[pygame.K_n]:
+            rotation += 5
+            if self.min_ind:
+                self.world.bodies[self.min_ind].angle += 0.5
+
+        if bt[pygame.K_q]:
+            if self.min_ind:
+                pass
             else:
                 list_ind = []
                 for ind in range(len(self.world.bodies)):
@@ -227,24 +253,22 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                             self.min_ind = ind
                     self.min_ind = list_ind[self.min_ind][0]
                     self.world.bodies[self.min_ind].gravityScale = 0.0
+                    self.world.bodies[self.min_ind].linearVelocity[0] = 0
+                    self.world.bodies[self.min_ind].linearVelocity[1] = 0
 
-        if bt[pygame.K_e]:
-            if self.min_ind:
-                direction_by_x = 0
-                direction_by_y = 0
-                if bt[pygame.K_w]:
-                    direction_by_y += 10
-                if bt[pygame.K_s]:
-                    direction_by_y -= 10
-                if bt[pygame.K_a]:
-                    direction_by_x -= 10
-                if bt[pygame.K_d]:
-                    direction_by_x += 10
-                self.world.bodies[self.min_ind].gravityScale = 1.0
-                self.world.bodies[self.min_ind].linearVelocity[0] = direction_by_x
-                self.world.bodies[self.min_ind].linearVelocity[1] = direction_by_y
-                self.min_ind = None
+        self.arm_step['right'] = right
+        self.arm_step['up'] = up
         return True
+
+    def Print(self, str="", color=(229, 153, 153, 255)):
+        sc_text = self.f_sys.render('Surprise: %s' % (agent.surprise), 1, color, (0, 0, 0))
+        text_pos = sc_text.get_rect(topleft=(10, 30))
+        self.screen.blit(sc_text, text_pos)
+        """
+        Переопределили функцию которая делает тексты
+        Draw some text at the top status lines
+        and advance to the next line.
+        """
 
     def run(self):
         """
@@ -276,7 +300,9 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             if GUIEnabled and self.settings.drawMenu:
                 self.gui_app.paint(self.screen)
 
+            self.Print()
             self.screen.blit(self.hand, self.hand_rect)
+            self.Print()
             #pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
             #self.bb = pygame.display.get_surface()
             self.pixel_array = self.get_image(pygame.display.get_surface())
@@ -291,16 +317,6 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.world.renderer = None
 
 
-    def Print(self, str, color=(229, 153, 153, 255)):
-        """
-        Переопределили функцию которая делает тексты
-        Draw some text at the top status lines
-        and advance to the next line.
-        """
-        pass
-
-agent = Agent()
-
 class CollisionProcessing(CustomPygameFramework):
 
     last_step = None
@@ -309,7 +325,7 @@ class CollisionProcessing(CustomPygameFramework):
     x_offset = -10
     y_offset = 10
     grab = False
-    ground_vertices = [(-50, 0), (50, 0)]
+    ground_vertices = [(-32, 38), (-32, 0), (32, 0), (32, 38)]
     our_color = [
         (255, 0, 0),
         (0, 255, 0),
@@ -330,7 +346,7 @@ class CollisionProcessing(CustomPygameFramework):
         # Ground body
         world = self.world
         ground = world.CreateBody(
-            shapes=b2EdgeShape(vertices=self.ground_vertices, )
+            shapes=b2LoopShape(vertices=self.ground_vertices, )
         )
 
         xlow, xhi = -5, 5
@@ -407,7 +423,7 @@ class CollisionProcessing(CustomPygameFramework):
                       for p in self.points]
 
         #img_processor = ImageProcessor('rrrrr.png', arm_size=(self.hand_rect.topleft[0],
-        if np.all(self.pixel_array != None) and True:
+        if np.all(self.pixel_array != None):
             img_processor = ImageProcessor(self.pixel_array, arm_size=(self.hand_rect.topleft[0],
                                                                       self.hand_rect.topleft[1],
                                                                       self.hand_rect.size[0],

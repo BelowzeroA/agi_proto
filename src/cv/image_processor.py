@@ -431,6 +431,7 @@ class ImageProcessor():
                 else:
                     line = [approx_contours[:-1]]
                 for approx_contour in line:
+
                     obj_data = {}
                     obj_data['rois'] = []
                     try:
@@ -438,6 +439,10 @@ class ImageProcessor():
                     except IndexError:
                         pass
                     if len(approx_contour) <= 2:
+                        continue
+                    point_max = np.max(approx_contour, axis=0)
+                    point_min = np.min(approx_contour, axis=0)
+                    if point_min[0] < 60:
                         continue
                     roi = self.find_roi(approx_contour)
                     x_mean = 0
@@ -454,8 +459,6 @@ class ImageProcessor():
                         cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
                     #cv.imshow('Image', self.img)
                     obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
-                    point_max = np.max(approx_contour, axis=0)
-                    point_min = np.min(approx_contour, axis=0)
                     dist = np.max(point_max - point_min) // 2 + 2
                     width_height = point_max - point_min
                     obj_data['width'] = width_height[0]
