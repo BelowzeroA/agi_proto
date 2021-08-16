@@ -131,9 +131,23 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
         self.hand_rect = self.hand.get_rect(topleft=(410, 350))
         self.min_ind = None
+        self.push = None
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
         self.f_sys = pygame.font.SysFont('arial', 12)
+
+
+    def get_index_near_object(self, val=15):
+        for ind in range(len(self.world.bodies)):
+            u = our_zoom(self.world.bodies[ind].worldCenter)
+            dist = (abs(self.hand_rect.center[0] - u[0]) +
+                    abs(self.hand_rect.center[1] - u[1]))
+            if dist < val:
+                dist = self.hand_rect.center[0] - u[0]
+                dist = 15 * (dist / abs(dist))
+                self.world.bodies[ind].linearVelocity[0] = dist
+                self.world.bodies[ind].linearVelocity[1] = 3
+
 
     def checkEvents(self):
         """
@@ -184,7 +198,16 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         right = 0
         up = 0
         rotation = 0
+
         bt = pygame.key.get_pressed()
+        if bt[pygame.K_f]:
+            if self.push:
+                self.push = False
+                print('don`t push')
+            else:
+                self.push = 1
+                print('push')
+
         if bt[pygame.K_e]:
             if self.min_ind:
                 self.world.bodies[self.min_ind].gravityScale = 1.0
@@ -199,6 +222,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.hand_rect.left = 0
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[0] -= 0.5
+            elif self.push:
+                self.get_index_near_object()
 
         if bt[pygame.K_d]:
             self.hand_rect.centerx += 5
@@ -207,6 +232,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.hand_rect.right = 639
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[0] += 0.5
+            elif self.push:
+                self.get_index_near_object()
 
         if bt[pygame.K_w]:
             self.hand_rect.centery -= 5
@@ -430,7 +457,7 @@ class CollisionProcessing(CustomPygameFramework):
                                                                       self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            agent.env_step(self.cur_step)
+            #agent.env_step(self.cur_step)
 
 
         #self.get_image()
