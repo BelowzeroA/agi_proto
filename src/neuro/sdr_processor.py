@@ -32,7 +32,7 @@ class SDRProcessor:
         if isinstance(pattern2, NeuralPattern):
             value = pattern2.value
         intersection = set(pattern1.value) & set(value)
-        return len(intersection) >= self.area.output_activity_norm * HyperParameters.pattern_recognition_threshold
+        return len(intersection) >= self.area.output_norm * HyperParameters.pattern_recognition_threshold
 
     def _get_raw_output(self, pattern: NeuralPattern) -> NeuralPattern:
         connections = self.area.connections
@@ -40,14 +40,14 @@ class SDRProcessor:
         if len(connections) == 0:
             output_space_indexes = list(range(self.area.output_space_size))
 
-            ratio = 0.15 * (self.area.output_space_size * self.area.output_activity_norm) / pattern.value_size
+            ratio = 0.15 * (self.area.output_space_size * self.area.output_norm) / pattern.value_size
             connection_density = int(ratio)
             for idx in range(pattern.space_size):
                 connections.append(random.sample(output_space_indexes, connection_density))
 
         output, highway_connections = self._select_pattern(pattern, connections)
-        if len(output) > self.area.output_activity_norm:
-            output = random.sample(output, self.area.output_activity_norm)
+        if len(output) > self.area.output_norm:
+            output = random.sample(output, self.area.output_norm)
 
         output.sort()
         return output, highway_connections
@@ -60,7 +60,7 @@ class SDRProcessor:
                 return out_pattern, activated_connections
 
     def _sample_activations(self, pattern: NeuralPattern, connections):
-        output_activity_norm = self.area.output_activity_norm
+        output_norm = self.area.output_norm
         target_cells_activated = []
         activated_connections = []
         for idx in pattern.value:
@@ -76,18 +76,18 @@ class SDRProcessor:
         highest_potential = counters[0][1]
         if highest_potential > 2:
             result = [c[0] for c in counters if c[1] > 2]
-            if len(result) >= output_activity_norm:
-                return result[:output_activity_norm], activated_connections
+            if len(result) >= output_norm:
+                return result[:output_norm], activated_connections
             else:
                 with_high_potential = [c[0] for c in counters if c[1] == 2]
-                if len(result) + len(with_high_potential) >= output_activity_norm:
-                    result = result + random.sample(with_high_potential, output_activity_norm - len(result))
+                if len(result) + len(with_high_potential) >= output_norm:
+                    result = result + random.sample(with_high_potential, output_norm - len(result))
                     return result, activated_connections
                 else:
                     return None, None
         else:
             result = [c[0] for c in counters if c[1] > 1]
-            if len(result) >= self.area.output_activity_norm:
+            if len(result) >= self.area.output_norm:
                 return result, activated_connections
         return None, None
 

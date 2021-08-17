@@ -1,11 +1,15 @@
 import random
 
+from neuro.areas.action_area import ActionArea
+from neuro.areas.hand_motion_area import HandMotionArea
 from neuro.areas.primitives_receptive_area import PrimitivesReceptiveArea
 from neuro.areas.spatial_receptive_area import SpatialReceptiveArea
 from neuro.container import Container
 from neuro.areas.encoder_area import EncoderArea
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
+
+ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'mode']
 
 
 class Agent:
@@ -17,6 +21,7 @@ class Agent:
         self.network = Network(container=self.container, agent=self)
         self.focused_body_idx = None
         self.surprise = 0
+        self.actions = {}
 
     def _build_network(self):
         self.primitives_receptive_area = PrimitivesReceptiveArea(name='primitives', container=self.container)
@@ -29,14 +34,14 @@ class Agent:
         self.presentation_area = EncoderArea(
             name='shape representations',
             output_space_size=HyperParameters.encoder_space_size,
-            output_activity_norm=HyperParameters.encoder_activity_norm,
+            output_norm=HyperParameters.encoder_norm,
             container=self.container
         )
 
         self.place_presentation_area = EncoderArea(
             name='place representations',
             output_space_size=HyperParameters.encoder_space_size,
-            output_activity_norm=HyperParameters.encoder_activity_norm,
+            output_norm=HyperParameters.encoder_norm,
             container=self.container,
             min_inputs=2
         )
@@ -44,7 +49,7 @@ class Agent:
         self.combined_area = EncoderArea(
             name='shape and place',
             output_space_size=HyperParameters.encoder_space_size,
-            output_activity_norm=HyperParameters.encoder_activity_norm,
+            output_norm=HyperParameters.encoder_norm,
             container=self.container,
             min_inputs=2
         )
@@ -89,9 +94,23 @@ class Agent:
             target=self.combined_area
         )
 
-    def on_message(self, data):
-        if data == 'pattern_created':
+    def _add_actions(self):
+        for action in ACTIONS:
+            area = HandMotionArea(
+                name=f'Action: {action}',
+                action_id=action,
+                output_space_size=100,
+                output_norm=10,
+                container=self.container
+            )
+            self.container.add_area(area)
+
+    def on_message(self, data: dict):
+        message = data['message']
+        if message == 'pattern_created':
             self.surprise += 1
+        elif message == 'hand_move':
+            self.actions[data['action_id']] = data['action_value']
 
     def activate_receptive_areas(self, data):
         if len(data) == 0 or len(data) > 3:
@@ -151,7 +170,9 @@ class Agent:
         # self.network.reset()
 
     def env_step(self, data):
+        self.actions = {a: 0 for a in ACTIONS}
         self.activate_receptive_areas(data)
         if self.container.network.verbose:
             print(f'Surprise: {self.surprise}')
+        return {'surprise': self.surprise, 'actions': self.actions}
 

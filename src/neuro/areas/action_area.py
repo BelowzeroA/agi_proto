@@ -2,27 +2,23 @@ from typing import List, Union
 
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
-from neuro.sdr_processor import SDRProcessor
 
 
-class EncoderArea(NeuralArea):
+class ActionArea(NeuralArea):
 
     def __init__(
             self,
             name: str,
+            action_id: str,
             output_space_size: int,
-            output_norm: int,
+            output_activity_norm: int,
             container,
-            min_inputs: int = 1
     ):
         super().__init__(name=name, container=container)
+        self.action_id = action_id
         self.output_space_size = output_space_size
-        self.output_norm = output_norm
-        self.min_inputs = min_inputs
-        self.processor = SDRProcessor(self)
+        self.output_activity_norm = output_activity_norm
         self.patterns: List[NeuralPattern] = []
-        self.highway_connections = set()
-        self.connections = []
 
     def update(self):
         self.output = None
@@ -49,14 +45,3 @@ class EncoderArea(NeuralArea):
 
     def reset_inputs(self):
         self.inputs = [None for i in range(len(self.input_sizes))]
-
-    def process_input(self, pattern: NeuralPattern) -> None:
-        output_pattern = self.processor.process_input(pattern)
-        if not self.output:
-            if self.container.network.verbose:
-                print(f'[{self.name}]: New pattern has been created {output_pattern}')
-            agent = self.container.network.agent
-            agent.on_message({'message': 'pattern_created'})
-        else:
-            if self.container.network.verbose:
-                print(f'[{self.name}]: Existing pattern has been recognized {output_pattern}')

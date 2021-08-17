@@ -9,10 +9,10 @@ NEURAL_SPACE_SIZE = 64
 
 class SpatialReceptiveArea(NeuralArea):
 
-    def __init__(self, name: str, container, output_space_size: int = None, output_activity_norm: int = None):
+    def __init__(self, name: str, container, output_space_size: int = None, output_norm: int = None):
         super().__init__(name, container)
         self.output_space_size = output_space_size or HyperParameters.space_encoder_space_size
-        self.output_activity_norm = output_activity_norm or HyperParameters.space_encoder_activity_norm
+        self.output_activity_norm = output_norm or HyperParameters.space_encoder_norm
         self.pattern_cache = {}
 
     def encode(self, data: float):
