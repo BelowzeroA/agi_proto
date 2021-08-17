@@ -8,10 +8,10 @@ class Network:
         self.container = container
         self.agent = agent
         self.current_tick = 0
-        self.verbose = True
+        self.verbose = False
         self.container.network = self
 
-    def step(self):
+    def _step_impl(self):
         for area in self.container.areas:
             area.update()
 
@@ -19,8 +19,8 @@ class Network:
             connection.update()
 
     def reset(self):
-        for connection in self.container.connections:
-            connection.pulsing = False
+        # for connection in self.container.connections:
+        #     connection.pulsing = False
 
         for area in self.container.areas:
             area.inputs.clear()
@@ -28,12 +28,19 @@ class Network:
     def run(self, max_iter=100):
         self.current_tick = 1
         while self.current_tick <= max_iter:
-            self.step()
+            self._step_impl()
 
             if self.verbose:
                 self.report()
 
             self.current_tick += 1
+
+    def step(self):
+        self.current_tick += 1
+        self._step_impl()
+
+        if self.verbose:
+            self.report()
 
     def report(self):
         print(f'Tick: {self.current_tick}')

@@ -11,7 +11,7 @@ class SDRProcessor:
     def __init__(self, area: 'EncoderArea'):
         self.area = area
 
-    def process_input(self, pattern: NeuralPattern) -> None:
+    def process_input(self, pattern: NeuralPattern) -> NeuralPattern:
         output, connections = self._get_raw_output(pattern)
         output_pattern = None
         for attempted_pattern in self.area.patterns:
@@ -35,19 +35,20 @@ class SDRProcessor:
         return len(intersection) >= self.area.output_activity_norm * HyperParameters.pattern_recognition_threshold
 
     def _get_raw_output(self, pattern: NeuralPattern) -> NeuralPattern:
-        connections = []
-        output_space_indexes = list(range(self.area.output_space_size))
-        # if pattern.space_size < self.area.output_space_size:
-        ratio = 0.15 * (self.area.output_space_size * self.area.output_activity_norm) / pattern.value_size
-        connection_density = int(ratio)
-        for idx in range(pattern.space_size):
-            connections.append(random.sample(output_space_indexes, connection_density))
+        connections = self.area.connections
+
+        if len(connections) == 0:
+            output_space_indexes = list(range(self.area.output_space_size))
+
+            ratio = 0.15 * (self.area.output_space_size * self.area.output_activity_norm) / pattern.value_size
+            connection_density = int(ratio)
+            for idx in range(pattern.space_size):
+                connections.append(random.sample(output_space_indexes, connection_density))
 
         output, highway_connections = self._select_pattern(pattern, connections)
         if len(output) > self.area.output_activity_norm:
             output = random.sample(output, self.area.output_activity_norm)
-        # else:
-        #     a = 0
+
         output.sort()
         return output, highway_connections
 

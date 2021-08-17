@@ -1,7 +1,7 @@
 import random
 
 from neuro.areas.primitives_receptive_area import PrimitivesReceptiveArea
-from neuro.areas.spacial_receptive_area import SpacialReceptiveArea
+from neuro.areas.spatial_receptive_area import SpatialReceptiveArea
 from neuro.container import Container
 from neuro.areas.encoder_area import EncoderArea
 from neuro.hyper_params import HyperParameters
@@ -21,10 +21,10 @@ class Agent:
     def _build_network(self):
         self.primitives_receptive_area = PrimitivesReceptiveArea(name='primitives', container=self.container)
 
-        self.shift_right_receptive_area = SpacialReceptiveArea(name='shift-right', container=self.container)
-        self.shift_left_receptive_area = SpacialReceptiveArea(name='shift-left', container=self.container)
-        self.shift_up_receptive_area = SpacialReceptiveArea(name='shift-up', container=self.container)
-        self.shift_down_receptive_area = SpacialReceptiveArea(name='shift-down', container=self.container)
+        self.shift_right_receptive_area = SpatialReceptiveArea(name='shift-right', container=self.container)
+        self.shift_left_receptive_area = SpatialReceptiveArea(name='shift-left', container=self.container)
+        self.shift_up_receptive_area = SpatialReceptiveArea(name='shift-up', container=self.container)
+        self.shift_down_receptive_area = SpatialReceptiveArea(name='shift-down', container=self.container)
 
         self.presentation_area = EncoderArea(
             name='shape representations',
@@ -96,7 +96,7 @@ class Agent:
     def activate_receptive_areas(self, data):
         if len(data) == 0 or len(data) > 3:
             return
-        previous_focused_body_idx = self.focused_body_idx
+
         if self.focused_body_idx is None:
             self.focused_body_idx = 0
         elif self.focused_body_idx >= len(data) - 1:
@@ -104,12 +104,23 @@ class Agent:
         else:
             self.focused_body_idx += 1
 
-        print(f'body #{self.focused_body_idx + 1}')
+        if self.container.network.verbose:
+            print(f'body #{self.focused_body_idx + 1}')
+
+        previous_focused_body_idx = self._get_previous_body_index(data)
         prev_body_data = None
         if previous_focused_body_idx:
             prev_body_data = data[previous_focused_body_idx]
         body_data = data[self.focused_body_idx]
         self._serial_activate_on_body(body_data, prev_body_data)
+
+    def _get_previous_body_index(self, data):
+        if len(data) < 2:
+            return None
+        if self.focused_body_idx == 0:
+            return len(data) - 1
+        else:
+            return self.focused_body_idx - 1
 
     def _serial_activate_on_body(self, body_data, prev_body_data):
         room_width = 640
@@ -135,11 +146,12 @@ class Agent:
 
         self.surprise = 0
 
-        self.network.run(max_iter=3)
-        self.network.reset()
-        self.presentation_area.active_pattern = None
+        self.network.verbose = False
+        self.network.step()
+        # self.network.reset()
 
     def env_step(self, data):
         self.activate_receptive_areas(data)
-        print(f'Surprise: {self.surprise}')
+        if self.container.network.verbose:
+            print(f'Surprise: {self.surprise}')
 

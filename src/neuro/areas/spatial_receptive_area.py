@@ -7,7 +7,7 @@ from neuro.neural_pattern import NeuralPattern
 NEURAL_SPACE_SIZE = 64
 
 
-class SpacialReceptiveArea(NeuralArea):
+class SpatialReceptiveArea(NeuralArea):
 
     def __init__(self, name: str, container, output_space_size: int = None, output_activity_norm: int = None):
         super().__init__(name, container)
@@ -19,7 +19,7 @@ class SpacialReceptiveArea(NeuralArea):
         if data == -1:
             return None
 
-        assert 0 <= data <= 1, 'spacial data must be normalized'
+        assert 0 <= data <= 1, 'spatial data must be normalized'
 
         data_hash = int(data * 100)
         if data_hash in self.pattern_cache:
