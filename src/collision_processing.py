@@ -129,6 +129,14 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.world.renderer = self.renderer
         self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
         self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
+        self.hand_close = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
+        self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
+                                                                   self.hand_close.get_height() // 20))
+        self.hand_push = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'push.png')).convert_alpha()
+        self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
+                                                                   self.hand_push.get_height() // 25))
+        self.hand_push_r = self.hand_push
+        self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
         self.hand_rect = self.hand.get_rect(topleft=(410, 350))
         self.min_ind = None
         self.push = None
@@ -136,16 +144,17 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.arm_step = {'right': 0, 'up': 0}
         self.f_sys = pygame.font.SysFont('arial', 12)
 
-
-    def get_index_near_object(self, val=15):
+    def push_near_object(self, val=15):
         for ind in range(len(self.world.bodies)):
             u = our_zoom(self.world.bodies[ind].worldCenter)
             dist = (abs(self.hand_rect.center[0] - u[0]) +
                     abs(self.hand_rect.center[1] - u[1]))
             if dist < val:
                 dist = self.hand_rect.center[0] - u[0]
-                dist = 15 * (dist / abs(dist))
-                self.world.bodies[ind].linearVelocity[0] = dist
+                if dist > 0:
+                    self.world.bodies[ind].linearVelocity[0] = -15
+                else:
+                    self.world.bodies[ind].linearVelocity[0] = 15
                 self.world.bodies[ind].linearVelocity[1] = 3
 
 
@@ -203,10 +212,10 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         if bt[pygame.K_f]:
             if self.push:
                 self.push = False
-                print('don`t push')
+                self.hand_rect = self.hand.get_rect(center=self.hand_rect.center)
             else:
                 self.push = 1
-                print('push')
+                self.hand_rect = self.hand_push.get_rect(center=self.hand_rect.center)
 
         if bt[pygame.K_e]:
             if self.min_ind:
@@ -223,7 +232,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[0] -= 0.5
             elif self.push:
-                self.get_index_near_object()
+                self.hand_push = self.hand_push_l
+                self.push_near_object(val=25)
 
         if bt[pygame.K_d]:
             self.hand_rect.centerx += 5
@@ -233,7 +243,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[0] += 0.5
             elif self.push:
-                self.get_index_near_object()
+                self.hand_push = self.hand_push_r
+                self.push_near_object(val=25)
 
         if bt[pygame.K_w]:
             self.hand_rect.centery -= 5
@@ -282,6 +293,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                     self.world.bodies[self.min_ind].gravityScale = 0.0
                     self.world.bodies[self.min_ind].linearVelocity[0] = 0
                     self.world.bodies[self.min_ind].linearVelocity[1] = 0
+            self.hand_rect = self.hand_close.get_rect(center=self.hand_rect.center)
 
         self.arm_step['right'] = right
         self.arm_step['up'] = up
@@ -328,8 +340,13 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.gui_app.paint(self.screen)
 
             self.Print()
-            self.screen.blit(self.hand, self.hand_rect)
-            self.Print()
+            if self.min_ind:
+                self.screen.blit(self.hand_close, self.hand_rect)
+            elif self.push:
+                self.screen.blit(self.hand_push, self.hand_rect)
+            else:
+                self.screen.blit(self.hand, self.hand_rect)
+            #self.Print()
             #pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
             #self.bb = pygame.display.get_surface()
             self.pixel_array = self.get_image(pygame.display.get_surface())
@@ -457,10 +474,8 @@ class CollisionProcessing(CustomPygameFramework):
                                                                       self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            #agent.env_step(self.cur_step)
+            agent.env_step(self.cur_step)
 
-
-        #self.get_image()
         for body1, body2 in body_pairs:
             mass1, mass2 = body1.mass, body2.mass
 
