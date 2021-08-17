@@ -433,7 +433,7 @@ class CollisionProcessing(CustomPygameFramework):
     def Keyboard(self, key):
         pass
 
-    def get_image(self, pixel_array):
+    def get_imag(self, pixel_array):
         buffer = pygame.PixelArray(pixel_array)
         res = np.zeros((480, 640, 4), dtype="uint8")
         for i in range(buffer.shape[1]):

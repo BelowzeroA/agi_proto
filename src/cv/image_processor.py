@@ -475,7 +475,9 @@ class ImageProcessor():
             for obj, last_center in zip(data, last_position):
                 obj['offset'] = (obj['center'][0] - last_center[0],
                                  obj['center'][1] - last_center[1])
-            # agent.env_step(data)
+        else:
+            for obj in data:
+                obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
         return data
