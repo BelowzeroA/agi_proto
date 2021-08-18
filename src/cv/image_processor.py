@@ -300,14 +300,10 @@ class ImageProcessor():
             x_right = roi[0] + quadrant_size - 1
             y_top = roi[1] + quadrant_size - 1
             y_bottom = roi[1] - quadrant_size
-            approx_contour_points_into_square = []
             list_x = sorted([x_left, x_right, roi[0] - 1, roi[0]])
             list_y = sorted([y_bottom, y_top, roi[1] - 1, roi[1]])
             res = []
-            # segmetnts = []
-            # for point in approx_contour[:-1]:
-            #    if (x_left <= point[0] and point[0] <= x_right and y_bottom <= point[1] and point[1] <= y_top):
-            #        approx_contour_points_into_square.append(point)
+
             a = list(approx_contour[0])
             approx_contour = list(approx_contour)
             approx_contour.append(a)
@@ -380,8 +376,6 @@ class ImageProcessor():
             point_max[1] <= self.arm_size[1] + self.arm_size[3])
 
     def general_presentation(self, vec, point_min, point_max, threshold=0.35):
-        #point_max = np.max(vec, axis=0)
-        #point_min = np.min(vec, axis=0)
         threshold = threshold * self.distance(point_min, point_max)
         res = [vec[0], ]
         flag = 0
@@ -425,11 +419,11 @@ class ImageProcessor():
                 # polygonize the rounded square
                 approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
 
-                if not self.is_it_in_arm_size(approx_contours):
+                #if not self.is_it_in_arm_size(approx_contours):
                     #line = self.split_shapes(approx_contours, self.img)
-                    line = [approx_contours[:-1]]
-                else:
-                    line = [approx_contours[:-1]]
+                line = [approx_contours[:-1]]
+                #else:
+                #    line = [approx_contours[:-1]]
                 for approx_contour in line:
 
                     obj_data = {}

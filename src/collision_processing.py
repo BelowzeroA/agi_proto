@@ -20,13 +20,12 @@
 
 import os
 
-import pyglet
 import pygame
 import numpy as np
 import Box2D
 from Box2D.examples.framework import Framework, main, Keys
-from Box2D import (b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
-                   b2Random, b2Vec2, b2_dynamicBody, b2Color, b2_kinematicBody)
+from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
+                   b2Random, b2Vec2, b2_dynamicBody, b2Color)
 from pygame.locals import (QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN,
                            MOUSEBUTTONUP, MOUSEMOTION, KMOD_LSHIFT)
 
@@ -38,6 +37,7 @@ ABSOLUTE_PATH = os.path.abspath('agi_proto')
 HZ = 34
 
 agent = Agent()
+
 
 try:
     from .pygame_gui import (fwGUI, gui)
@@ -104,7 +104,6 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
         Draw a solid circle given the center, radius, axis of orientation and
         color.
         """
-
         for ind in range(len(self.test.world.bodies)):
             u = our_zoom(self.test.world.bodies[ind].worldCenter)
             if self.EPS > abs(u[0] - center[0]) and self.EPS > abs(u[0] - center[0]):
@@ -144,6 +143,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.arm_step = {'right': 0, 'up': 0}
         self.f_sys = pygame.font.SysFont('arial', 12)
 
+
     def push_near_object(self, val=15):
         for ind in range(len(self.world.bodies)):
             u = our_zoom(self.world.bodies[ind].worldCenter)
@@ -156,7 +156,6 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 else:
                     self.world.bodies[ind].linearVelocity[0] = 15
                 self.world.bodies[ind].linearVelocity[1] = 3
-
 
     def checkEvents(self):
         """
@@ -224,43 +223,47 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
                 self.min_ind = None
 
-        if bt[pygame.K_a]:
-            self.hand_rect.centerx -= 5
-            right -= 10
+        if bt[pygame.K_a] or agent.actions['move_left']:
+            k = 1 if agent.actions['move_left'] == 2 else 0.5
+            self.hand_rect.centerx -= 5 * k
+            right -= 10 * k
             if self.hand_rect.left < 0:
                 self.hand_rect.left = 0
             if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[0] -= 0.5
+                self.world.bodies[self.min_ind].worldCenter[0] -= 0.5 * k
             elif self.push:
                 self.hand_push = self.hand_push_l
                 self.push_near_object(val=25)
 
-        if bt[pygame.K_d]:
-            self.hand_rect.centerx += 5
-            right += 10
+        if bt[pygame.K_d] or agent.actions['move_right']:
+            k = 1 if agent.actions['move_right'] == 2 else 0.5
+            self.hand_rect.centerx += 5 * k
+            right += 10 * k
             if self.hand_rect.right > 639:
                 self.hand_rect.right = 639
             if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[0] += 0.5
+                self.world.bodies[self.min_ind].worldCenter[0] += 0.5 * k
             elif self.push:
                 self.hand_push = self.hand_push_r
                 self.push_near_object(val=25)
 
-        if bt[pygame.K_w]:
-            self.hand_rect.centery -= 5
-            up += 20
-            if self.hand_rect.top < 0:
-                self.hand_rect.top = 0
+        if bt[pygame.K_w] or agent.actions['move_up']:
+            k = 1 if agent.actions['move_up'] == 2 else 0.5
+            self.hand_rect.centery -= 5 * k
+            up += 10 * k
+            if self.hand_rect.top < 255:
+                self.hand_rect.top = 255
             if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[1] += 0.5
+                self.world.bodies[self.min_ind].worldCenter[1] += 0.5 * k
 
-        if bt[pygame.K_s]:
-            self.hand_rect.centery += 5
-            up -= 10
-            if self.hand_rect.bottom > 440:
-                self.hand_rect.bottom = 440
+        if bt[pygame.K_s] or agent.actions['move_down']:
+            k = 1 if agent.actions['move_down'] == 2 else 0.5
+            self.hand_rect.centery += 5 * k
+            up -= 10 * k
+            if self.hand_rect.bottom > 437:
+                self.hand_rect.bottom = 437
             if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[1] -= 0.5
+                self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
 
         if bt[pygame.K_m]:
             rotation -= 5
@@ -346,12 +349,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.screen.blit(self.hand_push, self.hand_rect)
             else:
                 self.screen.blit(self.hand, self.hand_rect)
-            #self.Print()
-            #pygame.image.save(pygame.display.get_surface(), 'rrrrr.png')
-            #self.bb = pygame.display.get_surface()
-            self.pixel_array = self.get_image(pygame.display.get_surface())
-            #print('ddddd', pygame.Color(self.pixel_array[10, 10]))
-            # pygame.display.flip()
+            if self.num_step == 5:
+                self.pixel_array = self.get_image(pygame.display.get_surface())
             pygame.display.update()
             clock.tick(HZ)
             self.fps = clock.get_fps()
@@ -362,7 +361,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
 
 
 class CollisionProcessing(CustomPygameFramework):
-
+    num_step = 0
     last_step = None
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
@@ -393,12 +392,11 @@ class CollisionProcessing(CustomPygameFramework):
             shapes=b2LoopShape(vertices=self.ground_vertices, )
         )
 
-        xlow, xhi = -5, 5
-        ylow, yhi = 2, 35
-        random_vector = lambda: b2Vec2(b2Random(xlow, xhi), b2Random(ylow, yhi))
+        # xlow, xhi = -5, 5
+        # ylow, yhi = 2, 35
 
-        x, y, z = 1.0, 200.0, 3.0
-        c1 = b2Color(x, y, z)
+        # x, y, z = 1.0, 200.0, 3.0
+        # c1 = b2Color(x, y, z)
 
         circle = b2FixtureDef(
             shape=b2CircleShape(radius=2),
@@ -445,58 +443,32 @@ class CollisionProcessing(CustomPygameFramework):
                 res[i, j, 1] = pygame.Color(buffer[j, i]).b
         return res
 
-
     def get_image(self, pixel_array):
         buffer = pygame.surfarray.array3d(pixel_array)
         return buffer
 
     def Step(self, settings):
-
         # We are going to destroy some bodies according to contact
         # points. We must buffer the bodies that should be destroyed
         # because they may belong to multiple contact points.
-        nuke = []
 
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
-        #self.world.bodies[-1].inertia = 0.0
-        # Traverse the contact results. Destroy bodies that
-        # are touching heavier bodies.
-        body_pairs = [(p['fixtureA'].body, p['fixtureB'].body)
-                      for p in self.points]
-
-        #img_processor = ImageProcessor('rrrrr.png', arm_size=(self.hand_rect.topleft[0],
-        if np.all(self.pixel_array != None):
+        if np.all(self.pixel_array != None) and self.num_step == 5:
+            self.num_step = 0
             img_processor = ImageProcessor(self.pixel_array, arm_size=(self.hand_rect.topleft[0],
-                                                                      self.hand_rect.topleft[1],
-                                                                      self.hand_rect.size[0],
-                                                                      self.hand_rect.size[1]))
+                                                                       self.hand_rect.topleft[1],
+                                                                       self.hand_rect.size[0],
+                                                                       self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
             agent.env_step(self.cur_step)
 
-        for body1, body2 in body_pairs:
-            mass1, mass2 = body1.mass, body2.mass
-
-            if mass1 > 0.0 and mass2 > 0.0:
-                if mass2 > mass1:
-                    nuke_body = body1
-                else:
-                    nuke_body = body2
-
-                if nuke_body not in nuke:
-                    nuke.append(nuke_body)
-        nuke = []
-        # Destroy the bodies, skipping duplicates.
-        for b in nuke:
-            print("Nuking:", b)
-            self.world.DestroyBody(b)
-
-        nuke = None
-
+        self.num_step += 1
 
         super(CollisionProcessing, self).Step(settings)
+
 
 
 if __name__ == "__main__":
