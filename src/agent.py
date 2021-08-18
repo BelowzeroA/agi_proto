@@ -21,7 +21,7 @@ class Agent:
         self.network = Network(container=self.container, agent=self)
         self.focused_body_idx = None
         self.surprise = 0
-        self.actions = {}
+        self.actions = {a: 0 for a in ACTIONS}
 
     def _build_network(self):
         self.primitives_receptive_area = PrimitivesReceptiveArea(name='primitives', container=self.container)
@@ -172,7 +172,6 @@ class Agent:
         # self.network.reset()
 
     def env_step(self, data):
-        self.actions = {a: 0 for a in ACTIONS}
         self.activate_receptive_areas(data)
         if self.container.network.verbose:
             print(f'Surprise: {self.surprise}')
