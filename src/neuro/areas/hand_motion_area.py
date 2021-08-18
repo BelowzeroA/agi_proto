@@ -16,18 +16,16 @@ class HandMotionArea(ActionArea):
             name: str,
             action_id: str,
             output_space_size: int,
-            output_activity_norm: int,
+            output_norm: int,
             container,
     ):
         super().__init__(
             name=name,
             action_id=action_id,
             output_space_size=output_space_size,
-            output_activity_norm=output_activity_norm,
+            output_norm=output_norm,
             container=container
         )
-        self.output_space_size = output_space_size
-        self.output_activity_norm = output_activity_norm
         self.patterns: Dict[int, NeuralPattern] = {}
         self._generate_action_patterns()
         self.pattern_start_tick = None
@@ -35,7 +33,7 @@ class HandMotionArea(ActionArea):
 
     def _generate_action_patterns(self):
         for i in ACTION_SPACE:
-            pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_activity_norm)
+            pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
             pattern.generate_random()
             self.patterns[i] = pattern
 

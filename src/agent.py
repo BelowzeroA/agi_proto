@@ -94,6 +94,8 @@ class Agent:
             target=self.combined_area
         )
 
+        self._add_actions()
+
     def _add_actions(self):
         for action in ACTIONS:
             area = HandMotionArea(
