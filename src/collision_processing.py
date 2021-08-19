@@ -19,6 +19,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import os
+import random
 
 import pygame
 import numpy as np
@@ -35,10 +36,11 @@ from cv.image_processor import ImageProcessor
 from agent import Agent
 
 
+
 ABSOLUTE_PATH = os.path.abspath('agi_proto')
 HZ = 34
 
-#agent = Agent()
+agent = Agent()
 
 
 try:
@@ -340,16 +342,69 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase):
         self.world.renderer = None
 
 
-#class CollisionProcessing(CustomPygameFramework):
+class AgentHand:
+
+    def __init__(self, vec=None):
+        if vec:
+            self.hand_contour = np.array(vec)
+        else:
+            self.hand_contour = np.array(
+                [[1.0, 0.0],
+                 [1.6, 0.6],
+                 [1.4, 0.8],
+                 [0.3, 0.6],
+                 [1.4, 1.0],
+                 [0.0, 1.2],
+                 [1.4, 1.5],
+                 [0.3, 2.0],
+                 [2.0, 1.8],
+                 [2.3, 2.9],
+                 [3.1, 1.7],
+                 [3.1, 0.9]])
+        self.left = self.hand_contour[5][0]
+        self.right = self.hand_contour[11][0]
+        self.top = self.hand_contour[9][1]
+        self.bottom = self.hand_contour[0][1]
+        self._center = np.array([(self.left + self.right) / 2,
+                                (self.top + self.bottom) / 2])
+
+    def move_hand(self, vec=(0, 0)):
+        vec = np.array(vec)
+        self.hand_contour = self.hand_contour + vec
+        self.left = self.hand_contour[5][0]
+        self.right = self.hand_contour[11][0]
+        self.top = self.hand_contour[9][1]
+        self.bottom = self.hand_contour[0][1]
+        self._center = self._center + vec
+        return self
+
+    def __add__(self, other):
+        return self.move_hand(other)
+
+    def __iadd__(self, other):
+        return self.move_hand(other)
+
+    def __sub__(self, other):
+        other = (-other[0], -other[1])
+        return self.move_hand(other)
+
+    def __isub__(self, other):
+        other = (-other[0], -other[1])
+        return self.move_hand(other)
+
+
 class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
+    arm_step = {'right': 0, 'up': 0}
     settings = fwSettings
+    agent_hand = AgentHand()
     num_step = 0
     last_step = None
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
     y_offset = 10
-    grab = False
+    min_ind = False
+    push = False
     ground_vertices = [(-32, 38), (-32, 0), (32, 0), (32, 38)]
     our_color = [
         (255, 0, 0),
@@ -424,6 +479,10 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
                 self.world.bodies[ind].linearVelocity[1] = 3
 
     def Keyboard(self):
+        right = 0
+        up = 0
+        rotation = 0
+
         if False:
             if self.push:
                 self.push = False
@@ -441,43 +500,39 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
 
         if agent.actions['move_left']:
             k = 1 if agent.actions['move_left'] == 2 else 0.5
-            self.hand_rect.centerx -= 0.5 * k
             right -= 10 * k
-            if self.hand_rect.left < -31.9:
-                self.hand_rect.left = -31.9
-            if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[0] -= 0.5 * k
-            elif self.push:
-                self.hand_push = self.hand_push_l
-                self.push_near_object(val=25)
+            if not self.agent_hand.left < -31.9:
+                self.agent_hand -= (0.5 * k, 0)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[0] -= 0.5 * k
+                elif self.push:
+                    self.hand_push = self.hand_push_l
+                    self.push_near_object(val=25)
 
         if agent.actions['move_right']:
             k = 1 if agent.actions['move_right'] == 2 else 0.5
-            self.hand_rect.centerx += 0.5 * k
             right += 10 * k
-            if self.hand_rect.right > 31.9:
-                self.hand_rect.right = 31.9
-            if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[0] += 0.5 * k
-            elif self.push:
-                self.hand_push = self.hand_push_r
-                self.push_near_object(val=25)
+            if not self.agent_hand.right > 31.9:
+                self.agent_hand += (0.5 * k, 0)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[0] += 0.5 * k
+                elif self.push:
+                    self.hand_push = self.hand_push_r
+                    self.push_near_object(val=25)
 
         if agent.actions['move_up']:
             k = 1 if agent.actions['move_up'] == 2 else 0.5
-            self.hand_rect.centery -= 0.5 * k
             up += 10 * k
-            if self.hand_rect.top < 25.5:
-                self.hand_rect.top = 25.5
-            if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[1] += 0.5 * k
+            if not self.agent_hand.top > 16:
+                self.agent_hand += (0, 0.5 * k)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[1] += 0.5 * k
 
         if agent.actions['move_down']:
             k = 1 if agent.actions['move_down'] == 2 else 0.5
-            self.hand_rect.centery += 0.5 * k
             up -= 10 * k
-            if self.hand_rect.bottom > 43.7:
-                self.hand_rect.bottom = 43.7
+            if not self.agent_hand.bottom < 0.1:
+                self.agent_hand -= (0, 0.5 * k)
             if self.min_ind:
                 self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
 
@@ -538,11 +593,15 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
         #                                                                self.hand_rect.size[1]))
         #     self.cur_step = img_processor.run(self.last_step)
         #     self.last_step = [obj['center'] for obj in self.cur_step]
+        #agent.env_step('hi')
         self.Keyboard()
-
+        # agent.actions = {action:random.randint(0, 2) for action in ['move_left',
+        #                                                             'move_right',
+        #                                                             'move_up',
+        #                                                             'move_down']}
         # для проверки, живой ли мир?
         print(self.num_step)
-        print(self.world.bodies[-1].worldCenter)
+
         #if np.all(self.world.bodies[-1].linearVelocity == (0, 0)):
         #     if self.num_step == 0:
         #         self.world.bodies[-1].linearVelocity = (10, 10)
