@@ -349,8 +349,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.screen.blit(self.hand_push, self.hand_rect)
             else:
                 self.screen.blit(self.hand, self.hand_rect)
-            if self.num_step == 5:
-                self.pixel_array = self.get_image(pygame.display.get_surface())
+            #if self.num_step == 5:
+            self.pixel_array = self.get_image(pygame.display.get_surface())
             pygame.display.update()
             clock.tick(HZ)
             self.fps = clock.get_fps()
@@ -455,7 +455,7 @@ class CollisionProcessing(CustomPygameFramework):
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
-        if np.all(self.pixel_array != None) and self.num_step == 5:
+        if np.all(self.pixel_array != None): #and self.num_step == 5:
             self.num_step = 0
             img_processor = ImageProcessor(self.pixel_array, arm_size=(self.hand_rect.topleft[0],
                                                                        self.hand_rect.topleft[1],

@@ -15,7 +15,13 @@ class ImageProcessor():
         #self.img_gray = cv.imread(filename, 0)
         #self.img = cv.imread('rrrrr.png')
         #print(self.img)
-        self.img = filename
+        #self.img = filename
+        self.tmp_img = np.array(filename, dtype='uint8').transpose(1, 0, 2)
+        self.img = np.zeros((480, 640, 4), dtype='uint8')
+        self.img[:, :, 3] = self.tmp_img[:, :, 1]
+        self.img[:, :, 2] = self.tmp_img[:, :, 0]
+        self.img[:, :, 1] = self.tmp_img[:, :, 2]
+        #cv.imshow('Image', self.img)
         self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         self.arm_size = arm_size
 
