@@ -6,3 +6,4 @@ scikit-image
 sympy
 opencv-python
 shapely
+keyboard
