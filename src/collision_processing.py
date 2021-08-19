@@ -601,6 +601,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
         #                                                             'move_down']}
         # для проверки, живой ли мир?
         print(self.num_step)
+        print(self.world.bodies[-1])
 
         #if np.all(self.world.bodies[-1].linearVelocity == (0, 0)):
         #     if self.num_step == 0:

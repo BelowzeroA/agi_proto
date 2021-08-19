@@ -376,6 +376,8 @@ class ImageProcessor():
             point_max[1] <= self.arm_size[1] + self.arm_size[3])
 
     def general_presentation(self, vec, point_min, point_max, threshold=0.35):
+        #point_max = np.max(vec, axis=0)
+        #point_min = np.min(vec, axis=0)
         threshold = threshold * self.distance(point_min, point_max)
         res = [vec[0], ]
         flag = 0
@@ -438,6 +440,7 @@ class ImageProcessor():
                     point_min = np.min(approx_contour, axis=0)
                     if point_min[0] < 60:
                         continue
+                    print(approx_contour)
                     roi = self.find_roi(approx_contour)
                     x_mean = 0
                     y_mean = 0
@@ -474,4 +477,5 @@ class ImageProcessor():
                 obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
+
         return data
