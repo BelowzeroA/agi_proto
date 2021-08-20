@@ -571,9 +571,6 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
         self.arm_step['up'] = up
         return True
 
-    def get_image(self, pixel_array):
-        buffer = pygame.surfarray.array3d(pixel_array)
-        return buffer
 
     def Step(self, settings):
         # We are going to destroy some bodies according to contact

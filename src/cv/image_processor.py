@@ -250,7 +250,6 @@ class ImageProcessor():
 
     def is_two_points_belong_to_the_same_shape(self, p1, p2, img):
         x_mean = (p1 + p2) / 2
-        res = []
         if np.any(img[int(x_mean[1]), int(x_mean[0])] != np.array([0, 0, 0], dtype=np.int8)):
             return img[int(x_mean[1]), int(x_mean[0])]
         else:
@@ -418,10 +417,13 @@ class ImageProcessor():
         #
         if len(self.my_world.bodies) != 0:
             for world_body in self.my_world.bodies:
-                if world_body.fixtures[0].shape == Box2D.Box2D.b2CircleShape:
-                    approx_contour = self.get_approx_for_circle(self, world_body)
-                elif world_body.fixtures[0].shape == Box2D.Box2D.b2PolygonShape:
+                if type(world_body.fixtures[0].shape) == Box2D.b2CircleShape:
+                    approx_contour = self.get_approx_for_circle(world_body)
+                elif type(world_body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
                     approx_contour = world_body.fixtures[0].shape.vertices
+                else:
+                    continue
+                print(approx_contour)
                 obj_data = {}
                 obj_data['rois'] = []
                 point_max = np.max(approx_contour, axis=0)
@@ -445,8 +447,7 @@ class ImageProcessor():
                     self.general_presentation(approx_contour,
                                               point_min,
                                               point_max),
-                    dist,
-                    self.img)
+                    dist)
                 data.append(obj_data)
         if last_position:
             for obj, last_center in zip(data, last_position):
