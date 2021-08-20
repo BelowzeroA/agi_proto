@@ -349,8 +349,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.screen.blit(self.hand_push, self.hand_rect)
             else:
                 self.screen.blit(self.hand, self.hand_rect)
-            #if self.num_step == 5:
-            self.pixel_array = self.get_image(pygame.display.get_surface())
+            self.pixel_array = self.get_imag(pygame.display.get_surface())
             pygame.display.update()
             clock.tick(HZ)
             self.fps = clock.get_fps()
@@ -436,11 +435,10 @@ class CollisionProcessing(CustomPygameFramework):
         res = np.zeros((480, 640, 4), dtype="uint8")
         for i in range(buffer.shape[1]):
             for j in range(buffer.shape[0]):
-                #for k in [1, 2, 3]:
-                #    res[i, j, k - 1] = pygame.Color(buffer[j, i])[k]
                 res[i, j, 3] = pygame.Color(buffer[j, i]).r
                 res[i, j, 2] = pygame.Color(buffer[j, i]).g
                 res[i, j, 1] = pygame.Color(buffer[j, i]).b
+                res[i, j, 0] = pygame.Color(buffer[j, i]).a
         return res
 
     def get_image(self, pixel_array):
