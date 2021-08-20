@@ -31,10 +31,11 @@ from pygame.locals import (QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN,
 
 from cv.image_processor import ImageProcessor
 from agent import Agent
+from utils import path_from_root
 
 
-ABSOLUTE_PATH = os.path.abspath('agi_proto')
 HZ = 34
+
 
 agent = Agent()
 
@@ -126,12 +127,12 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         super().__init__()
         self.renderer = CustomDraw(surface=self.screen, test=self)
         self.world.renderer = self.renderer
-        self.hand = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
+        self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
         self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
-        self.hand_close = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'open.png')).convert_alpha()
+        self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
         self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
                                                                    self.hand_close.get_height() // 20))
-        self.hand_push = pygame.image.load(os.path.join(ABSOLUTE_PATH[:-14], 'pics', 'push.png')).convert_alpha()
+        self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
         self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
                                                                    self.hand_push.get_height() // 25))
         self.hand_push_r = self.hand_push
