@@ -36,8 +36,6 @@ from cv.image_processor import ImageProcessor
 from agent import Agent
 
 
-
-ABSOLUTE_PATH = os.path.abspath('agi_proto')
 HZ = 34
 
 agent = Agent()
@@ -585,23 +583,22 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
-        # if np.all(self.pixel_array != None) and self.num_step == 5:
-        #     self.num_step = 0
-        #     img_processor = ImageProcessor(self.pixel_array, arm_size=(self.hand_rect.topleft[0],
-        #                                                                self.hand_rect.topleft[1],
-        #                                                                self.hand_rect.size[0],
-        #                                                                self.hand_rect.size[1]))
-        #     self.cur_step = img_processor.run(self.last_step)
-        #     self.last_step = [obj['center'] for obj in self.cur_step]
+        img_processor = ImageProcessor(world=self.world, arm_size=(self.agent_hand.left,
+                                                 self.agent_hand.top,
+                                                 self.agent_hand.right - self.agent_hand.left,
+                                                 self.agent_hand.top - self.agent_hand.bottom))
+        self.cur_step = img_processor.run(self.last_step)
+        self.last_step = [obj['center'] for obj in self.cur_step]
         #agent.env_step('hi')
         self.Keyboard()
         # agent.actions = {action:random.randint(0, 2) for action in ['move_left',
         #                                                             'move_right',
         #                                                             'move_up',
         #                                                             'move_down']}
+
         # для проверки, живой ли мир?
-        print(self.num_step)
-        print(self.world.bodies[-1])
+        # print(self.num_step)
+        # print(self.world.bodies[-3].fixtures[0])
 
         #if np.all(self.world.bodies[-1].linearVelocity == (0, 0)):
         #     if self.num_step == 0:

@@ -6,18 +6,18 @@ from skimage.measure import approximate_polygon
 from sympy import Segment, Point, Line, N, acos
 import shapely
 from shapely import geometry
+import Box2D
+
+
+ALPHA_LIST = [22.5 + a for a in [0, 45, 90, 135, 180, 225, 270, 315]]
 
 
 class ImageProcessor():
-    def __init__(self, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
+    def __init__(self, world, arm_size=(0, 0, 0, 0)):
         self.ALPHA = 180 / np.arccos(-1)
-        #self.img = cv.imread(filename)
-        #self.img_gray = cv.imread(filename, 0)
-        #self.img = cv.imread('rrrrr.png')
-        #print(self.img)
-        self.img = filename
-        self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
+        self.my_world = world
         self.arm_size = arm_size
+        self.pi_alpha = np.pi / 180
 
     def mean(self, lst: list) -> float:
         return sum(lst) / len(lst)
@@ -286,7 +286,7 @@ class ImageProcessor():
                     all_shapes.append(temp_dict)
         return all_shapes
 
-    def quadrant_roi_analysis(self, roi, approx_contour, quadrant_size, img):
+    def quadrant_roi_analysis(self, roi, approx_contour, quadrant_size):
         quadrant_norm = 1.42 * quadrant_size
         result = {}
         try:
@@ -303,7 +303,6 @@ class ImageProcessor():
             list_x = sorted([x_left, x_right, roi[0] - 1, roi[0]])
             list_y = sorted([y_bottom, y_top, roi[1] - 1, roi[1]])
             res = []
-
             a = list(approx_contour[0])
             approx_contour = list(approx_contour)
             approx_contour.append(a)
@@ -350,20 +349,20 @@ class ImageProcessor():
                                                                          dtype=np.float32)) / quadrant_norm)
                 result['quadrants'][quadrant_number].append(our_line)
             # for color
-            for ind in range(1, len(res)):
-                if res[ind] == 0 or res[ind - 1] == 0:
-                    continue
-                if True:
-                    x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
-                    y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
-                    try_point = shapely.geometry.Point(x_mean + 3, y_mean)
-                    if polygon.contains(try_point):
-                        result['color'] = img[y_mean, x_mean + 3]
-                        break
-                    try_point = shapely.geometry.Point(x_mean - 3, y_mean)
-                    if polygon.contains(try_point):
-                        result['color'] = img[y_mean, x_mean - 3]
-                        break
+            # for ind in range(1, len(res)):
+            #     if res[ind] == 0 or res[ind - 1] == 0:
+            #         continue
+            #     if True:
+            #         x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
+            #         y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
+            #         try_point = shapely.geometry.Point(x_mean + 3, y_mean)
+            #         if polygon.contains(try_point):
+            #             result['color'] = img[y_mean, x_mean + 3]
+            #             break
+            #         try_point = shapely.geometry.Point(x_mean - 3, y_mean)
+            #         if polygon.contains(try_point):
+            #             result['color'] = img[y_mean, x_mean - 3]
+            #             break
         except ValueError:
             pass
         return result
@@ -409,65 +408,46 @@ class ImageProcessor():
             ind += 1
         return res[:-1]
 
+    def get_approx_for_circle(self, world_body):
+        radius = world_body.fixtures[0].shape.radius
+        return [(radius * np.cos(self.pi_alpha * alp), radius * np.sin(self.pi_alpha * alp)) for alp in ALPHA_LIST]
 
     def run(self, last_position=None):
-        ret, thresh = cv.threshold(self.img_gray, 0, 200, 0)
-        contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
         data = []
-        if len(contours) != 0:
-            for ind in range(len(contours)):
-                obj_data = []
-                arrow_contour = np.squeeze(contours[ind])
-                # polygonize the rounded square
-                approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
-
-                #if not self.is_it_in_arm_size(approx_contours):
-                    #line = self.split_shapes(approx_contours, self.img)
-                line = [approx_contours[:-1]]
-                #else:
-                #    line = [approx_contours[:-1]]
-                for approx_contour in line:
-
-                    obj_data = {}
-                    obj_data['rois'] = []
-                    try:
-                        approx_contour = approx_contour['points']
-                    except IndexError:
-                        pass
-                    if len(approx_contour) <= 2:
-                        continue
-                    point_max = np.max(approx_contour, axis=0)
-                    point_min = np.min(approx_contour, axis=0)
-                    if point_min[0] < 60:
-                        continue
-                    print(approx_contour)
-                    roi = self.find_roi(approx_contour)
-                    x_mean = 0
-                    y_mean = 0
-                    for point in roi:
-                        x_mean += point.args[0]
-                        y_mean += point.args[1]
-                        obj_data['rois'].append(
-                            self.quadrant_roi_analysis(point, approx_contour, 20, self.img)
-                        )
-                        cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
-                    for point in approx_contour:
-                        # small black dots - points after polygonizing
-                        cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
-                    #cv.imshow('Image', self.img)
-                    obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
-                    dist = np.max(point_max - point_min) // 2 + 2
-                    width_height = point_max - point_min
-                    obj_data['width'] = width_height[0]
-                    obj_data['height'] = width_height[1]
-                    obj_data['general_presentation'] = self.quadrant_roi_analysis(
-                        obj_data['center'],
-                        self.general_presentation(approx_contour,
-                                                  point_min,
-                                                  point_max),
-                        dist,
-                        self.img)
-                    data.append(obj_data)
+        # self.world.bodies[-2].fixtures[0].shape.radius
+        #
+        if len(self.my_world.bodies) != 0:
+            for world_body in self.my_world.bodies:
+                if world_body.fixtures[0].shape == Box2D.Box2D.b2CircleShape:
+                    approx_contour = self.get_approx_for_circle(self, world_body)
+                elif world_body.fixtures[0].shape == Box2D.Box2D.b2PolygonShape:
+                    approx_contour = world_body.fixtures[0].shape.vertices
+                obj_data = {}
+                obj_data['rois'] = []
+                point_max = np.max(approx_contour, axis=0)
+                point_min = np.min(approx_contour, axis=0)
+                roi = self.find_roi(approx_contour)
+                x_mean = 0
+                y_mean = 0
+                for point in roi:
+                    x_mean += point.args[0]
+                    y_mean += point.args[1]
+                    obj_data['rois'].append(
+                        self.quadrant_roi_analysis(point, approx_contour, 2)
+                    )
+                obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+                dist = np.max(point_max - point_min) // 2 + 2
+                width_height = point_max - point_min
+                obj_data['width'] = width_height[0]
+                obj_data['height'] = width_height[1]
+                obj_data['general_presentation'] = self.quadrant_roi_analysis(
+                    obj_data['center'],
+                    self.general_presentation(approx_contour,
+                                              point_min,
+                                              point_max),
+                    dist,
+                    self.img)
+                data.append(obj_data)
         if last_position:
             for obj, last_center in zip(data, last_position):
                 obj['offset'] = (obj['center'][0] - last_center[0],
@@ -477,5 +457,4 @@ class ImageProcessor():
                 obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
-
         return data
