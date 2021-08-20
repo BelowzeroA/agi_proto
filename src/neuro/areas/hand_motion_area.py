@@ -6,7 +6,7 @@ from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 
 ACTION_SPACE = [0, 1, 2]
-ACTION_LONGEVITY = 4
+ACTION_LONGEVITY = 8
 
 
 class HandMotionArea(ActionArea):
@@ -14,17 +14,19 @@ class HandMotionArea(ActionArea):
     def __init__(
             self,
             name: str,
+            agent,
+            zone,
             action_id: str,
             output_space_size: int,
             output_norm: int,
-            container,
     ):
         super().__init__(
             name=name,
+            agent=agent,
+            zone=zone,
             action_id=action_id,
             output_space_size=output_space_size,
             output_norm=output_norm,
-            container=container
         )
         self.patterns: Dict[int, NeuralPattern] = {}
         self._generate_action_patterns()
@@ -49,6 +51,3 @@ class HandMotionArea(ActionArea):
             'action_value': self.action_value
         })
         self.output = self.patterns[self.action_value]
-
-
-

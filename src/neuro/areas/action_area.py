@@ -9,12 +9,13 @@ class ActionArea(NeuralArea):
     def __init__(
             self,
             name: str,
+            agent,
+            zone,
             action_id: str,
             output_space_size: int,
             output_norm: int,
-            container,
     ):
-        super().__init__(name=name, container=container)
+        super().__init__(name=name, agent=agent, zone=zone)
         self.action_id = action_id
         self.output_space_size = output_space_size
         self.output_norm = output_norm

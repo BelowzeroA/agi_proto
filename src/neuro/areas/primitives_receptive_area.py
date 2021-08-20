@@ -9,8 +9,8 @@ NEURAL_SPACE_SIZE = 64
 
 class PrimitivesReceptiveArea(NeuralArea):
 
-    def __init__(self, name: str, container):
-        super().__init__(name, container)
+    def __init__(self, name: str, agent, zone):
+        super().__init__(name, agent, zone)
         self.output_space_size = NEURAL_SPACE_SIZE
 
     def _categorize_angle(self, angle: float):

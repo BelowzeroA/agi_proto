@@ -19,13 +19,13 @@ class SDRProcessor:
                 output_pattern = attempted_pattern
                 break
 
+        pattern_is_new = False
         if not output_pattern:
+            pattern_is_new = True
             output_pattern = NeuralPattern(self.area.output_space_size, value=output)
             self.area.patterns.append(output_pattern)
             self.area.highway_connections.update(connections)
-        else:
-            self.area.output = output_pattern
-        return output_pattern
+        return output_pattern, pattern_is_new
 
     def patterns_similar(self, pattern1: NeuralPattern, pattern2: Union[NeuralPattern, List[int]]):
         value = pattern2

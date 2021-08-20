@@ -10,12 +10,13 @@ class EncoderArea(NeuralArea):
     def __init__(
             self,
             name: str,
+            agent,
+            zone,
             output_space_size: int,
             output_norm: int,
-            container,
             min_inputs: int = 1
     ):
-        super().__init__(name=name, container=container)
+        super().__init__(name=name, agent=agent, zone=zone)
         self.output_space_size = output_space_size
         self.output_norm = output_norm
         self.min_inputs = min_inputs
@@ -31,15 +32,24 @@ class EncoderArea(NeuralArea):
             self.reset_inputs()
             return
 
-        combined_input = []
+        combined_input_indices = []
+        combined_input_data = {}
         shift = 0
         for i in range(len(self.inputs)):
-            if self.inputs[i]:
-                combined_input.extend([idx + shift for idx in self.inputs[i].value])
+            cur_input = self.inputs[i]
+            if cur_input:
+                combined_input_indices.extend([idx + shift for idx in cur_input.value])
+                if cur_input.data:
+                    for key in cur_input.data:
+                        combined_input_data[key] = cur_input.data[key]
             shift += self.input_sizes[i]
 
-        if len(combined_input):
-            combined_pattern = NeuralPattern(space_size=sum(self.input_sizes), value=combined_input)
+        if len(combined_input_indices):
+            combined_pattern = NeuralPattern(
+                space_size=sum(self.input_sizes),
+                value=combined_input_indices,
+                data=combined_input_data
+            )
             if self.container.network.verbose:
                 print(f'Combined receptive pattern: {combined_pattern}')
             self.process_input(combined_pattern)
@@ -47,16 +57,20 @@ class EncoderArea(NeuralArea):
             self.output = None
         self.reset_inputs()
 
+        super().update()
+
     def reset_inputs(self):
         self.inputs = [None for i in range(len(self.input_sizes))]
 
     def process_input(self, pattern: NeuralPattern) -> None:
-        output_pattern = self.processor.process_input(pattern)
-        if not self.output:
+        output_pattern, pattern_is_new = self.processor.process_input(pattern)
+        output_pattern.data = pattern.data
+        if pattern_is_new:
             if self.container.network.verbose:
                 print(f'[{self.name}]: New pattern has been created {output_pattern}')
             agent = self.container.network.agent
             agent.on_message({'message': 'pattern_created'})
         else:
+            self.output = output_pattern
             if self.container.network.verbose:
                 print(f'[{self.name}]: Existing pattern has been recognized {output_pattern}')

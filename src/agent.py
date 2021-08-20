@@ -8,8 +8,14 @@ from neuro.container import Container
 from neuro.areas.encoder_area import EncoderArea
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
+from neuro.zones.motor_zone import MotorZone
+from neuro.zones.visual_attention_zone import VisualAttentionZone
+from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
+ROOM_WIDTH = 640
+ROOM_HEIGHT = 480
 ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'mode']
+ATTENTION_SPAN = 5
 
 
 class Agent:
@@ -21,91 +27,16 @@ class Agent:
         self.network = Network(container=self.container, agent=self)
         self.focused_body_idx = None
         self.surprise = 0
-        self.actions = {}
+        self.actions = {a: 0 for a in ACTIONS}
+        self.attended_location_pattern = None
+        self.attention_strategy = 'loop'
+        self.attention_spot = None
+        self.last_attention_loop_switch_tick = 0
 
     def _build_network(self):
-        self.primitives_receptive_area = PrimitivesReceptiveArea(name='primitives', container=self.container)
-
-        self.shift_right_receptive_area = SpatialReceptiveArea(name='shift-right', container=self.container)
-        self.shift_left_receptive_area = SpatialReceptiveArea(name='shift-left', container=self.container)
-        self.shift_up_receptive_area = SpatialReceptiveArea(name='shift-up', container=self.container)
-        self.shift_down_receptive_area = SpatialReceptiveArea(name='shift-down', container=self.container)
-
-        self.presentation_area = EncoderArea(
-            name='shape representations',
-            output_space_size=HyperParameters.encoder_space_size,
-            output_norm=HyperParameters.encoder_norm,
-            container=self.container
-        )
-
-        self.place_presentation_area = EncoderArea(
-            name='place representations',
-            output_space_size=HyperParameters.encoder_space_size,
-            output_norm=HyperParameters.encoder_norm,
-            container=self.container,
-            min_inputs=2
-        )
-
-        self.combined_area = EncoderArea(
-            name='shape and place',
-            output_space_size=HyperParameters.encoder_space_size,
-            output_norm=HyperParameters.encoder_norm,
-            container=self.container,
-            min_inputs=2
-        )
-
-        self.container.add_area(self.shift_right_receptive_area)
-        self.container.add_area(self.shift_left_receptive_area)
-        self.container.add_area(self.shift_up_receptive_area)
-        self.container.add_area(self.shift_down_receptive_area)
-        self.container.add_area(self.primitives_receptive_area)
-        self.container.add_area(self.presentation_area)
-        self.container.add_area(self.place_presentation_area)
-        self.container.add_area(self.combined_area)
-
-        self.container.add_connection(
-            source=self.primitives_receptive_area,
-            target=self.presentation_area
-        )
-
-        self.container.add_connection(
-            source=self.shift_right_receptive_area,
-            target=self.place_presentation_area
-        )
-        self.container.add_connection(
-            source=self.shift_left_receptive_area,
-            target=self.place_presentation_area
-        )
-        self.container.add_connection(
-            source=self.shift_up_receptive_area,
-            target=self.place_presentation_area
-        )
-        self.container.add_connection(
-            source=self.shift_down_receptive_area,
-            target=self.place_presentation_area
-        )
-
-        self.container.add_connection(
-            source=self.place_presentation_area,
-            target=self.combined_area
-        )
-        self.container.add_connection(
-            source=self.presentation_area,
-            target=self.combined_area
-        )
-
-        self._add_actions()
-
-    def _add_actions(self):
-        for action in ACTIONS:
-            area = HandMotionArea(
-                name=f'Action: {action}',
-                action_id=action,
-                output_space_size=100,
-                output_norm=10,
-                container=self.container
-            )
-            self.container.add_area(area)
+        self.visual_recognition = VisualRecognitionZone.add(name='VR', agent=self)
+        self.visual_attention = VisualAttentionZone.add(name='VA', agent=self)
+        self.motor = MotorZone.add(name='MO', agent=self)
 
     def on_message(self, data: dict):
         message = data['message']
@@ -113,17 +44,35 @@ class Agent:
             self.surprise += 1
         elif message == 'hand_move':
             self.actions[data['action_id']] = data['action_value']
+        elif message == 'attention-strategy':
+            if data['strategy'] == 'focus':
+                self.attention_strategy = 'focus'
+        elif message == 'attention-location':
+            self.attention_spot = data['location']
+        else:
+            raise AttributeError(f'Unrecognized message: {message}')
 
-    def activate_receptive_areas(self, data):
-        if len(data) == 0 or len(data) > 3:
-            return
-
+    def _switch_focus(self, data):
         if self.focused_body_idx is None:
             self.focused_body_idx = 0
         elif self.focused_body_idx >= len(data) - 1:
             self.focused_body_idx = 0
         else:
             self.focused_body_idx += 1
+
+    def loop_strategy(self, data):
+        if len(data) == 0 or len(data) > 3:
+            return
+
+        current_tick = self.network.current_tick
+        if current_tick == 0:
+            self._switch_focus(data)
+        elif current_tick - self.last_attention_loop_switch_tick > ATTENTION_SPAN:
+            self._switch_focus(data)
+            self.last_attention_loop_switch_tick = current_tick
+
+        if self.focused_body_idx >= len(data):
+            self.focused_body_idx = len(data) - 1
 
         if self.container.network.verbose:
             print(f'body #{self.focused_body_idx + 1}')
@@ -133,7 +82,14 @@ class Agent:
         if previous_focused_body_idx:
             prev_body_data = data[previous_focused_body_idx]
         body_data = data[self.focused_body_idx]
+
         self._serial_activate_on_body(body_data, prev_body_data)
+
+    def activate_receptive_areas(self, data):
+        if self.attention_strategy == 'loop':
+            self.loop_strategy(data)
+        else:
+            self.loop_strategy(data)
 
     def _get_previous_body_index(self, data):
         if len(data) < 2:
@@ -144,37 +100,26 @@ class Agent:
             return self.focused_body_idx - 1
 
     def _serial_activate_on_body(self, body_data, prev_body_data):
-        room_width = 640
-        room_height = 480
-        if prev_body_data:
-            shift_x = body_data['center'][0] - prev_body_data['center'][0]
-            shift_y = body_data['center'][1] - prev_body_data['center'][1]
-        else:
-            shift_x = body_data['center'][0] - room_width // 2
-            shift_y = body_data['center'][1] - room_height // 2
-        shift_x = shift_x / room_width
-        shift_y = shift_y / room_height
-
-        eye_shift_left, eye_shift_right = (-1, shift_x) if shift_x > 0 else (-shift_x, -1)
-        eye_shift_up, eye_shift_down = (-1, shift_y) if shift_y > 0 else (-shift_y, -1)
-
-        self.primitives_receptive_area.activate_on_body(body_data['general_presentation'])
-
-        self.shift_right_receptive_area.activate_on_body(eye_shift_right)
-        self.shift_left_receptive_area.activate_on_body(eye_shift_left)
-        self.shift_up_receptive_area.activate_on_body(eye_shift_up)
-        self.shift_down_receptive_area.activate_on_body(eye_shift_down)
+        self.visual_recognition.activate_on_body(body_data, prev_body_data)
+        self.visual_attention.activate_on_body(body_data)
 
         self.surprise = 0
 
         self.network.verbose = False
         self.network.step()
-        # self.network.reset()
 
     def env_step(self, data):
         self.actions = {a: 0 for a in ACTIONS}
         self.activate_receptive_areas(data)
         if self.container.network.verbose:
             print(f'Surprise: {self.surprise}')
-        return {'surprise': self.surprise, 'actions': self.actions}
+        attention_x, attention_y = -1, -1
+        if self.attention_spot:
+            attention_x = int(self.attention_spot['attention-horizontal'] * ROOM_WIDTH)
+            attention_y = int(self.attention_spot['attention-vertical'] * ROOM_HEIGHT)
+        return {
+            'surprise': self.surprise,
+            'actions': self.actions,
+            'attention-spot': {'x': attention_x, 'y': attention_y}
+        }
 
