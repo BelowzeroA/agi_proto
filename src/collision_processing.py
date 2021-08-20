@@ -143,6 +143,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
         self.f_sys = pygame.font.SysFont('arial', 12)
+        self.attention = None
 
 
     def push_near_object(self, val=15):
@@ -344,13 +345,20 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.gui_app.paint(self.screen)
 
             self.Print()
+                #self.DrawSolidCircle(self, attention_point, 2, (255, 0, 0))
             if self.min_ind:
                 self.screen.blit(self.hand_close, self.hand_rect)
             elif self.push:
                 self.screen.blit(self.hand_push, self.hand_rect)
             else:
                 self.screen.blit(self.hand, self.hand_rect)
+            attention_point = [-1, -1]
             self.pixel_array = self.get_imag(pygame.display.get_surface())
+            if (self.attention and self.attention['attention-spot']['x'] != -1 and
+                    self.attention['attention-spot']['y'] != -1):
+                attention_point[0] = self.attention['attention-spot']['x']
+                attention_point[1] = self.attention['attention-spot']['y']
+                pygame.draw.circle(self.screen, (255, 0, 0), attention_point, 30, 1)
             pygame.display.update()
             clock.tick(HZ)
             self.fps = clock.get_fps()
@@ -462,7 +470,7 @@ class CollisionProcessing(CustomPygameFramework):
                                                                        self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            agent.env_step(self.cur_step)
+            self.attention = agent.env_step(self.cur_step)
 
         self.num_step += 1
 
