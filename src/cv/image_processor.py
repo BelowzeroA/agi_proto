@@ -407,6 +407,61 @@ class ImageProcessor():
             ind += 1
         return res[:-1]
 
+    def get_intersect(self, a1, a2, b1, b2):
+        """
+        Returns the point of intersection of the lines passing through a2,a1 and b2,b1.
+        a1: [x, y] a point on the first line
+        a2: [x, y] another point on the first line
+        b1: [x, y] a point on the second line
+        b2: [x, y] another point on the second line
+        """
+        a1_a2 = np.array([a2[0] - a1[0], a2[1] - a1[1]])
+        a1_b1 = np.array([b1[0] - a1[0], b1[1] - a1[1]])
+        a1_b2 = np.array([b2[0] - a1[0], b2[1] - a1[1]])
+        b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1]])
+        b1_a1 = np.array([a1[0] - b1[0], a1[1] - b1[1]])
+        b1_a2 = np.array([a2[0] - b1[0], a2[1] - b1[1]])
+        if np.cross(a1_a2, a1_b1) * np.cross(a1_a2, a1_b2) > 0:
+            return False
+        elif np.cross(b1_b2, b1_a1) * np.cross(b1_b2, b1_a2) > 0:
+            return False
+        s = np.vstack([a1, a2, b1, b2])  # s for stacked
+        h = np.hstack((s, np.ones((4, 1))))  # h for homogeneous
+        l1 = np.cross(h[0], h[1])  # get first line
+        l2 = np.cross(h[2], h[3])  # get second line
+        x, y, z = np.cross(l1, l2)  # point of intersection
+        if z == 0:  # lines are parallel
+            return False
+        return (x / z, y / z)
+
+    def f(self, polygon, arm):
+        res = []
+        poly_1 = []
+        poly_2 = []
+        for i in range(len(polygon)):
+            temp_l = [polygon[i], polygon[(i + 1) % len(polygon)]]
+            for j in range(len(arm)):
+                intersect_res = self.get_intersect(polygon[i], polygon((i + 1) % len(polygon)),
+                                                   arm[j], arm[(j + 1) % len(arm)])
+                if intersect_res:
+                    temp_l.append(intersect_res)
+                    poly_2.append([arm[j], intersect_res, arm[(j + 1) % len(arm)]])
+            temp_l.sort()
+            if polygon[i] == temp_l[0]:
+                poly_1.extend(temp_l[:-1])
+            else:
+                temp_l.reverse()
+                poly_1.extend(temp_l[:-1])
+        segment = []
+        count = 0
+        for p in poly_1:
+            segment.append(p)
+            for j in range(len(poly_2)):
+                if poly_2[j][0] == p:
+                    pass
+
+
+
 
     def run(self, last_position=None):
         ret, thresh = cv.threshold(self.img_gray, 0, 200, 0)
@@ -457,6 +512,12 @@ class ImageProcessor():
                     width_height = point_max - point_min
                     obj_data['width'] = width_height[0]
                     obj_data['height'] = width_height[1]
+                    if len(approx_contour) == 3:
+                        obj_data['name'] = 'triangle'
+                    elif len(approx_contour) == 8:
+                        obj_data['name'] = 'circle'
+                    else:
+                        obj_data['name'] = 'hand'
                     obj_data['general_presentation'] = self.quadrant_roi_analysis(
                         obj_data['center'],
                         self.general_presentation(approx_contour,

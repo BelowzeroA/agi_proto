@@ -164,46 +164,46 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         Check for pygame events (mainly keyboard/mouse events).
         Passes the events onto the GUI also.
         """
-        for event in pygame.event.get():
-            if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
-                return False
-            elif event.type == KEYDOWN:
-                self._Keyboard_Event(event.key, down=True)
-            elif event.type == KEYUP:
-                self._Keyboard_Event(event.key, down=False)
-            elif event.type == MOUSEBUTTONDOWN:
-                p = self.ConvertScreenToWorld(*event.pos)
-                if event.button == 1:  # left
-                    mods = pygame.key.get_mods()
-                    if mods & KMOD_LSHIFT:
-                        self.ShiftMouseDown(p)
-                    else:
-                        self.MouseDown(p)
-                elif event.button == 2:  # middle
-                    pass
-                elif event.button == 3:  # right
-                    self.rMouseDown = True
-                elif event.button == 4:
-                    self.viewZoom *= 1.1
-                elif event.button == 5:
-                    self.viewZoom /= 1.1
-            elif event.type == MOUSEBUTTONUP:
-                p = self.ConvertScreenToWorld(*event.pos)
-                if event.button == 3:  # right
-                    self.rMouseDown = False
-                else:
-                    self.MouseUp(p)
-            elif event.type == MOUSEMOTION:
-                p = self.ConvertScreenToWorld(*event.pos)
-
-                self.MouseMove(p)
-
-                if self.rMouseDown:
-                    self.viewCenter -= (event.rel[0] /
-                                        5.0, -event.rel[1] / 5.0)
-
-            if GUIEnabled:
-                self.gui_app.event(event)  # Pass the event to the GUI
+        # for event in pygame.event.get():
+        #     if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
+        #         return False
+        #     elif event.type == KEYDOWN:
+        #         self._Keyboard_Event(event.key, down=True)
+        #     elif event.type == KEYUP:
+        #         self._Keyboard_Event(event.key, down=False)
+        #     elif event.type == MOUSEBUTTONDOWN:
+        #         p = self.ConvertScreenToWorld(*event.pos)
+        #         if event.button == 1:  # left
+        #             mods = pygame.key.get_mods()
+        #             if mods & KMOD_LSHIFT:
+        #                 self.ShiftMouseDown(p)
+        #             else:
+        #                 self.MouseDown(p)
+        #         elif event.button == 2:  # middle
+        #             pass
+        #         elif event.button == 3:  # right
+        #             self.rMouseDown = True
+        #         elif event.button == 4:
+        #             self.viewZoom *= 1.1
+        #         elif event.button == 5:
+        #             self.viewZoom /= 1.1
+        #     elif event.type == MOUSEBUTTONUP:
+        #         p = self.ConvertScreenToWorld(*event.pos)
+        #         if event.button == 3:  # right
+        #             self.rMouseDown = False
+        #         else:
+        #             self.MouseUp(p)
+        #     elif event.type == MOUSEMOTION:
+        #         p = self.ConvertScreenToWorld(*event.pos)
+        #
+        #         self.MouseMove(p)
+        #
+        #         if self.rMouseDown:
+        #             self.viewCenter -= (event.rel[0] /
+        #                                 5.0, -event.rel[1] / 5.0)
+        #
+        #     if GUIEnabled:
+        #         self.gui_app.event(event)  # Pass the event to the GUI
 
         right = 0
         up = 0
