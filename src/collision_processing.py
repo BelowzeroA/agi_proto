@@ -586,7 +586,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase):
                                                  self.agent_hand.top - self.agent_hand.bottom))
         self.cur_step = img_processor.run(self.last_step)
         self.last_step = [obj['center'] for obj in self.cur_step]
-        #agent.env_step('hi')
+        #agent.env_step(self.last_step)
         self.Keyboard()
         # agent.actions = {action:random.randint(0, 2) for action in ['move_left',
         #                                                             'move_right',

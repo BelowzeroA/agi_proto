@@ -12,6 +12,12 @@ import Box2D
 ALPHA_LIST = [22.5 + a for a in [0, 45, 90, 135, 180, 225, 270, 315]]
 
 
+def our_zoom(vertices):
+    x = vertices[0]
+    y = vertices[1]
+    return round(x * 10) + 320, round((20 - y) * 10) + 240
+
+
 class ImageProcessor():
     def __init__(self, world, arm_size=(0, 0, 0, 0)):
         self.ALPHA = 180 / np.arccos(-1)
@@ -80,8 +86,8 @@ class ImageProcessor():
         for i in range(len(contour)):
             point1 = contour[i]
             point2 = contour[i + 1] if i < len(contour) - 1 else contour[0]
-            p1 = Point(point1[0], point1[1])
-            p2 = Point(point2[0], point2[1])
+            p1 = Point(point1[0], point1[1], evaluate=False)
+            p2 = Point(point2[0], point2[1], evaluate=False)
             segment = Segment(p1, p2)
             if p1 not in points:
                 points.append(p1)
@@ -408,22 +414,36 @@ class ImageProcessor():
         return res[:-1]
 
     def get_approx_for_circle(self, world_body):
+        center = world_body.worldCenter
         radius = world_body.fixtures[0].shape.radius
-        return [(radius * np.cos(self.pi_alpha * alp), radius * np.sin(self.pi_alpha * alp)) for alp in ALPHA_LIST]
+        return [(radius * np.cos(self.pi_alpha * alp) + center[0],
+                 radius * np.sin(self.pi_alpha * alp) + center[1]) for alp in ALPHA_LIST]
+
+    def get_approx_for_poly(self, data, angle=0, pos=(0, 0)):
+        #angle *= (np.pi / 180)
+        pos = np.array(pos)
+        result = []
+        cos_alpha = np.cos(angle)
+        sin_alpha = np.sin(angle)
+        rotation_matrix = np.array([[cos_alpha, -sin_alpha],
+                                    [sin_alpha, cos_alpha]])
+        for point in data:
+            result.append(np.dot(rotation_matrix, np.array(point)) + pos)
+        return result
 
     def run(self, last_position=None):
         data = []
-        # self.world.bodies[-2].fixtures[0].shape.radius
-        #
         if len(self.my_world.bodies) != 0:
             for world_body in self.my_world.bodies:
                 if type(world_body.fixtures[0].shape) == Box2D.b2CircleShape:
                     approx_contour = self.get_approx_for_circle(world_body)
                 elif type(world_body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
-                    approx_contour = world_body.fixtures[0].shape.vertices
+                    approx_contour = self.get_approx_for_poly(world_body.fixtures[0].shape.vertices,
+                                                              world_body.transform.angle,
+                                                              world_body.transform.position)
                 else:
                     continue
-                print(approx_contour)
+                approx_contour = [our_zoom(p) for p in approx_contour]
                 obj_data = {}
                 obj_data['rois'] = []
                 point_max = np.max(approx_contour, axis=0)
