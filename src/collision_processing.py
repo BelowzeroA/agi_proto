@@ -137,7 +137,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                                                                    self.hand_push.get_height() // 25))
         self.hand_push_r = self.hand_push
         self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
-        self.hand_rect = self.hand.get_rect(topleft=(410, 350))
+        #self.hand_rect = self.hand.get_rect(topleft=(410, 350))
+        self.hand_rect = self.hand.get_rect(topleft=(180, 405))
         self.min_ind = None
         self.push = None
         self.pixel_array = None
@@ -457,17 +458,18 @@ class CollisionProcessing(CustomPygameFramework):
     def Step(self, settings):
         # We are going to destroy some bodies according to contact
         # points. We must buffer the bodies that should be destroyed
-        # because they may belong to multiple contact points.
-
+        # because they may belong to multiple contact points
+        #print(self.hand_rect.topleft)
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
         if np.all(self.pixel_array != None): #and self.num_step == 5:
             self.num_step = 0
-            img_processor = ImageProcessor(self.pixel_array, arm_size=(self.hand_rect.topleft[0],
-                                                                       self.hand_rect.topleft[1],
-                                                                       self.hand_rect.size[0],
-                                                                       self.hand_rect.size[1]))
+            img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
+                                                                    self.hand_rect.topleft[0],
+                                                                    self.hand_rect.topleft[1],
+                                                                    self.hand_rect.size[0],
+                                                                    self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
             self.attention = agent.env_step(self.cur_step)

@@ -6,18 +6,41 @@ from skimage.measure import approximate_polygon
 from sympy import Segment, Point, Line, N, acos
 import shapely
 from shapely import geometry
+import Box2D
+
+ALPHA_LIST = [22.5 + a for a in [0, 45, 90, 135, 180, 225, 270, 315]]
+
+
+def our_zoom(vertices):
+    x = vertices[0]
+    y = vertices[1]
+    return round(x * 10) + 320, round((20 - y) * 10) + 240
 
 
 class ImageProcessor():
-    def __init__(self, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
+    def __init__(self, world, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
         self.ALPHA = 180 / np.arccos(-1)
         #self.img = cv.imread(filename)
         #self.img_gray = cv.imread(filename, 0)
         #self.img = cv.imread('rrrrr.png')
         #print(self.img)
+        self.my_world = world
         self.img = filename
         self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         self.arm_size = arm_size
+        self.pi_alpha = np.pi / 180
+        self.hand_polygon = np.array([[12,  0],
+                                   [10, 14],
+                                   [ 6,  3],
+                                   [ 8, 14],
+                                   [ 6, 16],
+                                   [ 0, 10],
+                                   [ 9, 31],
+                                   [17, 31],
+                                   [29, 23],
+                                   [18, 20],
+                                   [21,  4],
+                                   [15, 14]])
 
     def mean(self, lst: list) -> float:
         return sum(lst) / len(lst)
@@ -432,100 +455,224 @@ class ImageProcessor():
         x, y, z = np.cross(l1, l2)  # point of intersection
         if z == 0:  # lines are parallel
             return False
-        return (x / z, y / z)
+        return (round(x / z), round(y / z))
 
-    def f(self, polygon, arm):
+    def gen(self, idx, flag, size):
+        if flag:
+            while idx < size:
+                idx += 1
+                yield idx % size
+        else:
+            while idx > -1:
+                idx -= 1
+                yield idx % size
+
+
+    def find_inner_point(self, arm, points, ind, poly_2):
         res = []
-        poly_1 = []
-        poly_2 = []
+        if ind == -1:
+            ind_2 = 0
+        else:
+            ind_2 = -1
+        for i in range(len(arm)):
+            if arm[i] == points[ind]:
+                break
+        strategy = True
+        if arm[i - 1] == points[ind_2]:
+            strategy = False
+        for idx in self.gen(i, strategy, len(arm)):
+            res.append(arm[idx])
+            for triple in poly_2:
+                if triple[0] == arm[idx] or triple[-1] == arm[idx]:
+                    res.append(triple[1])
+                    return res
+        return res
+
+    def del_more_zeros(self, obj_ext, obj_flag):
+        tail = 0
+        head = 0
+        count = 0
+        for i in range(len(obj_ext)):
+            if obj_flag[i] == 0:
+                head = i
+                count += 1
+            elif obj_flag[i] == 1 and count > 2:
+                obj_ext = obj_ext[:tail + 1] + obj_ext[head:]
+                obj_flag = obj_flag[:tail + 1] + obj_flag[head:]
+                return obj_ext, obj_flag
+        return obj_ext, obj_flag
+
+    def separate_hand_obj(self, polygon, arm):
+        res = []
+        obj_ext = []
+        list_of_triples = []
+        obj_flag = []
+        arm_flag = []
         for i in range(len(polygon)):
             temp_l = [polygon[i], polygon[(i + 1) % len(polygon)]]
             for j in range(len(arm)):
-                intersect_res = self.get_intersect(polygon[i], polygon((i + 1) % len(polygon)),
+                intersect_res = self.get_intersect(polygon[i], polygon[(i + 1) % len(polygon)],
                                                    arm[j], arm[(j + 1) % len(arm)])
                 if intersect_res:
                     temp_l.append(intersect_res)
-                    poly_2.append([arm[j], intersect_res, arm[(j + 1) % len(arm)]])
+                    list_of_triples.append([arm[j], intersect_res, arm[(j + 1) % len(arm)]])
             temp_l.sort()
+            obj_flag.extend([1] + [0] * (len(temp_l) - 2))
             if polygon[i] == temp_l[0]:
-                poly_1.extend(temp_l[:-1])
+                obj_ext.extend(temp_l[:-1])
             else:
                 temp_l.reverse()
-                poly_1.extend(temp_l[:-1])
-        segment = []
-        count = 0
-        for p in poly_1:
-            segment.append(p)
-            for j in range(len(poly_2)):
-                if poly_2[j][0] == p:
-                    pass
+                obj_ext.extend(temp_l[:-1])
+            arm_ext = []
+        if len(list_of_triples) == 0:
+            return [polygon, ]
+        for idx in range(len(arm)):
+            arm_ext.append(arm[idx])
+            arm_flag.append(1)
+            for triple in list_of_triples:
+                if np.all(triple[0] == arm[idx]) or np.all(triple[-1] == arm[idx]):
+                    arm_ext.append(triple[1])
+                    arm_flag.append(0)
+                    break
+        idx = 0
+        while obj_flag[idx] != 0 and idx < len(obj_flag):
+            idx += 1
+        if obj_flag[idx + 1] == 0:
+            obj_ext = obj_ext[idx + 1:] + obj_ext[:idx + 1]
+            obj_flag = obj_flag[idx + 1:] + obj_flag[:idx + 1]
+        else:
+            obj_ext = obj_ext[idx:] + obj_ext[:idx]
+            obj_flag = obj_flag[idx:] + obj_flag[:idx]
+        obj_ext, obj_flag = self.del_more_zeros(obj_ext, obj_flag)
+        obj_arm_dict = {}
+        for idx in range(len(obj_ext)):
+            if obj_flag[idx] == 0:
+                for j in range(len(arm_ext)):
+                    if np.all(obj_ext[idx] == arm_ext[j]):
+                        #obj_arm_dict[idx] = arm_ext.index(obj_ext[idx])
+                        obj_arm_dict[idx] = j
+        tail = 0
+        count_ones = 0
+        for idx in range(len(obj_ext) - 1):
+            if obj_flag[idx] == 0 and obj_flag[(idx + 1) % len(obj_flag)] == 0 and count_ones == 0:
+                tail = idx + 1
+            elif obj_flag[idx] == 0 and obj_flag[(idx + 1) % len(obj_flag)] == 1:
+                head = idx + 1
+                count_ones += 1
+            elif obj_flag[idx] == 1 and obj_flag[(idx + 1) % len(obj_flag)] == 1:
+                head = idx + 1
+                count_ones += 1
+            else:
+                segment = obj_ext[tail: head + 1]
+                arm_tail = obj_arm_dict[head + 1]
+                arm_head = obj_arm_dict[tail]
+                if arm_tail > arm_head:
+                    temp_l = arm_ext[arm_head: arm_tail]
+                    temp_l.reverse()
+                else:
+                    temp_l = arm_ext[arm_tail: arm_head]
+                segment.extend(temp_l)
+                res.append(segment)
+                count_ones = 0
+        return [res, arm]
 
+    def get_approx_for_circle(self, world_body):
+        center = world_body.worldCenter
+        radius = world_body.fixtures[0].shape.radius - 3
+        return [(radius * np.cos(self.pi_alpha * alp) + center[0],
+                 radius * np.sin(self.pi_alpha * alp) + center[1]) for alp in ALPHA_LIST]
 
+    def get_approx_for_poly(self, data, angle=0, pos=(0, 0)):
+        # angle *= (np.pi / 180)
+        pos = np.array(pos)
+        result = []
+        cos_alpha = np.cos(angle)
+        sin_alpha = np.sin(angle)
+        rotation_matrix = np.array([[cos_alpha, -sin_alpha],
+                                    [sin_alpha, cos_alpha]])
+        for point in data:
+            result.append(np.dot(rotation_matrix, np.array(point)) + pos)
+        return result
 
+    def obj_func(self, data, approx_contour):
+        obj_data = {}
+        obj_data['rois'] = []
+        # try:
+        #     approx_contour = approx_contour['points']
+        # except IndexError:
+        #     pass
+        if len(approx_contour) <= 2:
+            return
+        point_max = np.max(approx_contour, axis=0)
+        point_min = np.min(approx_contour, axis=0)
+        if point_min[1] < 60:
+            return
+        roi = self.find_roi(approx_contour)
+        x_mean = 0
+        y_mean = 0
+        for point in roi:
+            x_mean += point.args[0]
+            y_mean += point.args[1]
+            obj_data['rois'].append(
+                self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
+            )
+            cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+        for point in approx_contour:
+            # small black dots - points after polygonizing
+            cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
+        # cv.imshow('Image', self.img)
+        obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+        dist = np.max(point_max - point_min) // 2 + 2
+        width_height = point_max - point_min
+        obj_data['width'] = width_height[0]
+        obj_data['height'] = width_height[1]
+        if len(approx_contour) == 3:
+            obj_data['name'] = 'triangle'
+        elif len(approx_contour) == 8:
+            obj_data['name'] = 'circle'
+        else:
+            obj_data['name'] = 'hand'
+        obj_data['general_presentation'] = self.quadrant_roi_analysis(
+            obj_data['center'],
+            self.general_presentation(approx_contour,
+                                      point_min,
+                                      point_max),
+            dist,
+            self.img)
+        data.append(obj_data)
 
     def run(self, last_position=None):
-        ret, thresh = cv.threshold(self.img_gray, 0, 200, 0)
-        contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+        #ret, thresh = cv.threshold(self.img_gray, 0, 200, 0)
+        #contours, hierarchy = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
         data = []
-        if len(contours) != 0:
-            for ind in range(len(contours)):
-                obj_data = []
-                arrow_contour = np.squeeze(contours[ind])
-                # polygonize the rounded square
-                approx_contours = approximate_polygon(arrow_contour, tolerance=2.5)
-
-                #if not self.is_it_in_arm_size(approx_contours):
-                    #line = self.split_shapes(approx_contours, self.img)
-                line = [approx_contours[:-1]]
-                #else:
-                #    line = [approx_contours[:-1]]
-                for approx_contour in line:
-
-                    obj_data = {}
-                    obj_data['rois'] = []
-                    try:
-                        approx_contour = approx_contour['points']
-                    except IndexError:
-                        pass
-                    if len(approx_contour) <= 2:
-                        continue
-                    point_max = np.max(approx_contour, axis=0)
-                    point_min = np.min(approx_contour, axis=0)
-                    if point_min[1] < 60:
-                        continue
-                    roi = self.find_roi(approx_contour)
-                    x_mean = 0
-                    y_mean = 0
-                    for point in roi:
-                        x_mean += point.args[0]
-                        y_mean += point.args[1]
-                        obj_data['rois'].append(
-                            self.quadrant_roi_analysis(point, approx_contour, 20, self.img)
-                        )
-                        cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
-                    for point in approx_contour:
-                        # small black dots - points after polygonizing
-                        cv.circle(self.img, (point[0], point[1]), 2, (0, 255, 0), -1)
-                    #cv.imshow('Image', self.img)
-                    obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
-                    dist = np.max(point_max - point_min) // 2 + 2
-                    width_height = point_max - point_min
-                    obj_data['width'] = width_height[0]
-                    obj_data['height'] = width_height[1]
-                    if len(approx_contour) == 3:
-                        obj_data['name'] = 'triangle'
-                    elif len(approx_contour) == 8:
-                        obj_data['name'] = 'circle'
-                    else:
-                        obj_data['name'] = 'hand'
-                    obj_data['general_presentation'] = self.quadrant_roi_analysis(
-                        obj_data['center'],
-                        self.general_presentation(approx_contour,
-                                                  point_min,
-                                                  point_max),
-                        dist,
-                        self.img)
-                    data.append(obj_data)
+        arm = self.hand_polygon + np.array([self.arm_size[0] + 1, self.arm_size[1]])
+        arm_flag = False
+        if len(self.my_world.bodies) != 0:
+            for world_body in self.my_world.bodies:
+                if len(world_body.fixtures) == 0:
+                    continue
+                if type(world_body.fixtures[0].shape) == Box2D.b2CircleShape:
+                    approx_contour = self.get_approx_for_circle(world_body)
+                elif type(world_body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                    approx_contour = self.get_approx_for_poly(world_body.fixtures[0].shape.vertices,
+                                                              world_body.transform.angle,
+                                                              world_body.transform.position)
+                else:
+                    continue
+                approx_contour = [our_zoom(p) for p in approx_contour]
+                line = self.separate_hand_obj(approx_contour, arm)
+                if len(line) == 2:
+                    temp_data = []
+                    for approx_contour in line[0]:
+                        self.obj_func(temp_data, approx_contour)
+                    temp_obj = temp_data[0]
+                    for temp in temp_data[1:]:
+                        temp_obj['rois'].extend(temp['rois'])
+                    data.append(temp_obj)
+                else:
+                    for approx_contour in line:
+                        self.obj_func(data, approx_contour)
+        self.obj_func(data, arm)
         if last_position:
             for obj, last_center in zip(data, last_position):
                 obj['offset'] = (obj['center'][0] - last_center[0],
