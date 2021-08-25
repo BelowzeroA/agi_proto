@@ -22,6 +22,9 @@ class NeuralArea:
         zone.areas.append(area)
         return area
 
+    def receive_dope(self, dope_value: int):
+        pass
+
     def update(self):
         self.zone.on_area_updated(self)
 

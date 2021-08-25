@@ -18,10 +18,11 @@ class Network:
         for connection in self.container.connections:
             connection.update()
 
-    def reset(self):
-        # for connection in self.container.connections:
-        #     connection.pulsing = False
+        if self.agent.surprise:
+            for zone in self.container.zones:
+                zone.spread_dope(self.agent.surprise)
 
+    def reset(self):
         for area in self.container.areas:
             area.inputs.clear()
 

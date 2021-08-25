@@ -10,6 +10,7 @@ class VisualAttentionZone(NeuralZone):
 
     def __init__(self, name: str, agent):
         super().__init__(name, agent)
+        self.attention_locations = {}
         self._build_areas()
 
     def _build_areas(self):
@@ -33,7 +34,8 @@ class VisualAttentionZone(NeuralZone):
             zone=self,
             output_space_size=HyperParameters.encoder_space_size,
             output_norm=HyperParameters.encoder_norm,
-            min_inputs=2
+            min_inputs=2,
+            surprise_level=0,
         )
 
         self.container.add_connection(source=self.attention_location_horizontal, target=self.attention_location)
@@ -84,6 +86,9 @@ class VisualAttentionZone(NeuralZone):
 
     def _activate_velocity(self, body_data):
         max_velocity = 5
+        if 'offset' not in body_data:
+            return
+
         x = body_data['offset'][0] / max_velocity
         y = body_data['offset'][1] / max_velocity
 
@@ -117,3 +122,4 @@ class VisualAttentionZone(NeuralZone):
                 'message': 'attention-location',
                 'location': area.output.data,
             })
+            self.attention_locations[self.agent.network.current_tick] = area.output.data

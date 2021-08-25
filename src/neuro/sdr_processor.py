@@ -91,3 +91,29 @@ class SDRProcessor:
                 return result, activated_connections
         return None, None
 
+    @staticmethod
+    def make_combined_pattern(inputs: List[NeuralPattern], input_sizes) -> NeuralPattern:
+        combined_input_indices = []
+        combined_input_data = {}
+        combined_pattern = None
+        histories = []
+        shift = 0
+        for i in range(len(inputs)):
+            cur_input = inputs[i]
+            if cur_input:
+                combined_input_indices.extend([idx + shift for idx in cur_input.value])
+                histories.append(cur_input.history)
+                if cur_input.data:
+                    for key in cur_input.data:
+                        combined_input_data[key] = cur_input.data[key]
+            shift += input_sizes[i]
+
+        if len(combined_input_indices):
+            combined_pattern = NeuralPattern(
+                space_size=sum(input_sizes),
+                value=combined_input_indices,
+                data=combined_input_data
+            )
+            combined_pattern.merge_histories(histories)
+        return combined_pattern
+

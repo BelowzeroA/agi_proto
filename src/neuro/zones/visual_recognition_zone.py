@@ -11,6 +11,10 @@ class VisualRecognitionZone(NeuralZone):
         super().__init__(name, agent)
         self._build_areas()
 
+    @property
+    def shape_shift_area(self):
+        return self._shape_shift_area
+
     def _build_areas(self):
         self.primitives_receptive_area = PrimitivesReceptiveArea.add(
             name='primitives',
@@ -29,24 +33,27 @@ class VisualRecognitionZone(NeuralZone):
             zone=self,
             output_space_size=HyperParameters.encoder_space_size,
             output_norm=HyperParameters.encoder_norm,
+            surprise_level=2,
         )
 
-        place_presentation_area = EncoderArea(
+        place_presentation_area = EncoderArea.add(
             name='place representations',
             agent=self.agent,
             zone=self,
             output_space_size=HyperParameters.encoder_space_size,
             output_norm=HyperParameters.encoder_norm,
-            min_inputs=2
+            min_inputs=2,
+            surprise_level=0,
         )
 
-        combined_area = EncoderArea(
+        self._shape_shift_area = EncoderArea.add(
             name='shape and place',
             agent=self.agent,
             zone=self,
             output_space_size=HyperParameters.encoder_space_size,
             output_norm=HyperParameters.encoder_norm,
-            min_inputs=2
+            min_inputs=2,
+            surprise_level=0
         )
 
         self.container.add_connection(
@@ -73,11 +80,11 @@ class VisualRecognitionZone(NeuralZone):
 
         self.container.add_connection(
             source=place_presentation_area,
-            target=combined_area
+            target=self.shape_shift_area
         )
         self.container.add_connection(
             source=presentation_area,
-            target=combined_area
+            target=self.shape_shift_area
         )
 
     def activate_on_body(self, body_data, prev_body_data):
@@ -87,15 +94,17 @@ class VisualRecognitionZone(NeuralZone):
     def _activate_eye_shift_areas(self, body_data, prev_body_data):
         from agent import ROOM_WIDTH, ROOM_HEIGHT
 
+        half_width = ROOM_WIDTH // 2
+        half_height = ROOM_HEIGHT // 2
         if prev_body_data:
             shift_x = body_data['center'][0] - prev_body_data['center'][0]
             shift_y = body_data['center'][1] - prev_body_data['center'][1]
         else:
-
-            shift_x = body_data['center'][0] - ROOM_WIDTH // 2
-            shift_y = body_data['center'][1] - ROOM_HEIGHT // 2
-        shift_x = shift_x / ROOM_WIDTH
-        shift_y = shift_y / ROOM_HEIGHT
+            return
+            shift_x = body_data['center'][0] - half_width
+            shift_y = body_data['center'][1] - half_height
+        shift_x = shift_x / half_width
+        shift_y = shift_y / half_height
 
         eye_shift_left, eye_shift_right = (-1, shift_x) if shift_x > 0 else (-shift_x, -1)
         eye_shift_up, eye_shift_down = (-1, shift_y) if shift_y > 0 else (-shift_y, -1)

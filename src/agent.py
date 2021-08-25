@@ -9,6 +9,7 @@ from neuro.areas.encoder_area import EncoderArea
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
 from neuro.zones.motor_zone import MotorZone
+from neuro.zones.reflex_zone import ReflexZone
 from neuro.zones.visual_attention_zone import VisualAttentionZone
 from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
@@ -27,26 +28,42 @@ class Agent:
         self.network = Network(container=self.container, agent=self)
         self.focused_body_idx = None
         self.surprise = 0
+        self.surprise_history = {}
         self.actions = {a: 0 for a in ACTIONS}
         self.attended_location_pattern = None
         self.attention_strategy = 'loop'
         self.attention_spot = None
         self.last_attention_loop_switch_tick = 0
+        self.last_motion_tick = 0
+        self.moving_body_start_tick = 0
+        self.moving_body = None
+        self.last_attended_body = None
 
     def _build_network(self):
         self.visual_recognition = VisualRecognitionZone.add(name='VR', agent=self)
         self.visual_attention = VisualAttentionZone.add(name='VA', agent=self)
         self.motor = MotorZone.add(name='MO', agent=self)
+        self.reflex = ReflexZone.add(
+            name='RE',
+            agent=self,
+            motor_zone=self.motor,
+            vr_zone=self.visual_recognition
+        )
 
     def on_message(self, data: dict):
+        current_tick = self.network.current_tick
         message = data['message']
         if message == 'pattern_created':
-            self.surprise += 1
+            self.surprise += data['surprise_level']
+            if current_tick not in self.surprise_history:
+                self.surprise_history[current_tick] = []
+            self.surprise_history[current_tick].append(data)
         elif message == 'hand_move':
             self.actions[data['action_id']] = data['action_value']
         elif message == 'attention-strategy':
             if data['strategy'] == 'focus':
                 self.attention_strategy = 'focus'
+                self.last_motion_tick = current_tick
         elif message == 'attention-location':
             self.attention_spot = data['location']
         else:
@@ -83,13 +100,86 @@ class Agent:
             prev_body_data = data[previous_focused_body_idx]
         body_data = data[self.focused_body_idx]
 
+        prev_body_data = None
         self._serial_activate_on_body(body_data, prev_body_data)
 
+    def _get_distance(self, x, y, body_data):
+        dx = x - body_data['center'][0]
+        dy = y - body_data['center'][1]
+        dx = dx if dx > 0 else -dx
+        dy = dy if dy > 0 else -dy
+        return dx + dy
+
+    def find_body_from_attention_spot(self, data):
+        attention_x = int(self.attention_spot['attention-horizontal'] * ROOM_WIDTH)
+        attention_y = int(self.attention_spot['attention-vertical'] * ROOM_HEIGHT)
+        distances = []
+        for i in range(len(data)):
+            distance = self._get_distance(attention_x, attention_y, data[i])
+            distances.append((data[i], distance))
+        distances.sort(key=lambda x: x[1])
+        return distances[0][0]
+
+    def find_nearest_neighbor(self, data, body):
+        x, y = body['center'][0], body['center'][1]
+        distances = []
+        for i in range(len(data)):
+            if data[i] == body:
+                continue
+            distance = self._get_distance(x, y, data[i])
+            distances.append((data[i], distance))
+        distances.sort(key=lambda x: x[1])
+        shortest_distance = distances[0][1]
+        if shortest_distance > 150:
+            return None
+        return distances[0][0]
+
+    def get_moving_body(self, data):
+        for body_data in data:
+            if body_data['offset'][0] != 0 or body_data['offset'][1]:
+                return body_data
+        return None
+
+    def focus_strategy(self, data):
+        if len(data) == 0 or len(data) > 3:
+            return
+
+        current_tick = self.network.current_tick
+
+        if self.moving_body_start_tick == current_tick - 1:
+            attended_body = self.last_attended_body
+        else:
+            attended_body = self.find_body_from_attention_spot(data)
+
+        moving_body = self.get_moving_body(data)
+        if moving_body is None:
+            self._serial_activate_on_body(attended_body)
+            return
+
+        prev_attended_body = attended_body
+        if current_tick - self.moving_body_start_tick > 3:
+            if moving_body == attended_body:
+                attempted_body = self.find_nearest_neighbor(data, attended_body)
+                if attempted_body:
+                    attended_body = attempted_body
+            else:
+                attended_body = moving_body
+            self.moving_body_start_tick = current_tick
+
+        if prev_attended_body == attended_body:
+            prev_attended_body = None
+
+        self.last_attended_body = attended_body
+        self._serial_activate_on_body(attended_body, prev_attended_body)
+
     def activate_receptive_areas(self, data):
+        current_tick = self.network.current_tick
+        if current_tick - self.last_motion_tick > 7:
+            self.attention_strategy = 'loop'
         if self.attention_strategy == 'loop':
             self.loop_strategy(data)
         else:
-            self.loop_strategy(data)
+            self.focus_strategy(data)
 
     def _get_previous_body_index(self, data):
         if len(data) < 2:
@@ -99,7 +189,7 @@ class Agent:
         else:
             return self.focused_body_idx - 1
 
-    def _serial_activate_on_body(self, body_data, prev_body_data):
+    def _serial_activate_on_body(self, body_data, prev_body_data=None):
         self.visual_recognition.activate_on_body(body_data, prev_body_data)
         self.visual_attention.activate_on_body(body_data)
 

@@ -16,7 +16,7 @@ class MotorZone(NeuralZone):
         for action in ACTIONS:
             area = HandMotionArea.add(
                 name=f'Action: {action}',
-                agent=self,
+                agent=self.agent,
                 zone=self,
                 action_id=action,
                 output_space_size=100,

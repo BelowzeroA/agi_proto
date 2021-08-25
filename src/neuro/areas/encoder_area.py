@@ -14,7 +14,8 @@ class EncoderArea(NeuralArea):
             zone,
             output_space_size: int,
             output_norm: int,
-            min_inputs: int = 1
+            min_inputs: int = 1,
+            surprise_level: int = 1,
     ):
         super().__init__(name=name, agent=agent, zone=zone)
         self.output_space_size = output_space_size
@@ -24,6 +25,7 @@ class EncoderArea(NeuralArea):
         self.patterns: List[NeuralPattern] = []
         self.highway_connections = set()
         self.connections = []
+        self.surprise_level = surprise_level
 
     def update(self):
         self.output = None
@@ -32,24 +34,8 @@ class EncoderArea(NeuralArea):
             self.reset_inputs()
             return
 
-        combined_input_indices = []
-        combined_input_data = {}
-        shift = 0
-        for i in range(len(self.inputs)):
-            cur_input = self.inputs[i]
-            if cur_input:
-                combined_input_indices.extend([idx + shift for idx in cur_input.value])
-                if cur_input.data:
-                    for key in cur_input.data:
-                        combined_input_data[key] = cur_input.data[key]
-            shift += self.input_sizes[i]
-
-        if len(combined_input_indices):
-            combined_pattern = NeuralPattern(
-                space_size=sum(self.input_sizes),
-                value=combined_input_indices,
-                data=combined_input_data
-            )
+        combined_pattern = SDRProcessor.make_combined_pattern(self.inputs, self.input_sizes)
+        if combined_pattern:
             if self.container.network.verbose:
                 print(f'Combined receptive pattern: {combined_pattern}')
             self.process_input(combined_pattern)
@@ -65,11 +51,18 @@ class EncoderArea(NeuralArea):
     def process_input(self, pattern: NeuralPattern) -> None:
         output_pattern, pattern_is_new = self.processor.process_input(pattern)
         output_pattern.data = pattern.data
+        output_pattern.log(self)
         if pattern_is_new:
             if self.container.network.verbose:
                 print(f'[{self.name}]: New pattern has been created {output_pattern}')
-            agent = self.container.network.agent
-            agent.on_message({'message': 'pattern_created'})
+            if self.surprise_level > 0:
+                agent = self.container.network.agent
+                agent.on_message({
+                    'message': 'pattern_created',
+                    'surprise_level': self.surprise_level,
+                    'area': self,
+                    'pattern': output_pattern
+                })
         else:
             self.output = output_pattern
             if self.container.network.verbose:

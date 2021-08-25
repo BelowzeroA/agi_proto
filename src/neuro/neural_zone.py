@@ -10,10 +10,17 @@ class NeuralZone:
         self.agent = agent
 
     @classmethod
-    def add(cls, name, agent) -> 'NeuralZone':
-        zone = cls(name, agent)
+    def add(cls, name, agent, **kwargs) -> 'NeuralZone':
+        zone = cls(name, agent, **kwargs)
         agent.container.add_zone(zone)
         return zone
+
+    def get_areas(self):
+        return self.areas
+
+    def spread_dope(self, dope_value: int):
+        for area in self.areas:
+            area.receive_dope(dope_value)
 
     def on_area_updated(self, area):
         pass
