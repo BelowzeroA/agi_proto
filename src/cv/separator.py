@@ -34,7 +34,6 @@ class Separator():
         tail = 0
         head = 0
         count = 0
-        print('len_before', len(obj_ext), obj_flag)
         for i in range(len(obj_ext)):
             if i >= 1 and obj_flag[i - 1] == 1 and obj_flag[i] == 0:
                 tail = i
@@ -45,7 +44,6 @@ class Separator():
             elif obj_flag[i] == 1 and count > 2:
                 obj_ext = obj_ext[:tail + 1] + obj_ext[head:]
                 obj_flag = obj_flag[:tail + 1] + obj_flag[head:]
-                print('len_after', len(obj_ext), obj_flag)
                 return obj_ext, obj_flag
             else:
                 count = 0
