@@ -23,11 +23,9 @@ import os
 import pygame
 import numpy as np
 import Box2D
-from Box2D.examples.framework import Framework, main, Keys
+from Box2D.examples.framework import Framework, main
 from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color)
-from pygame.locals import (QUIT, KEYDOWN, KEYUP, MOUSEBUTTONDOWN,
-                           MOUSEBUTTONUP, MOUSEMOTION, KMOD_LSHIFT)
 
 from cv.image_processor import ImageProcessor
 from agent import Agent
@@ -137,15 +135,14 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                                                                    self.hand_push.get_height() // 25))
         self.hand_push_r = self.hand_push
         self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
-        #self.hand_rect = self.hand.get_rect(topleft=(410, 350))
-        self.hand_rect = self.hand.get_rect(topleft=(180, 405))
+        self.hand_rect = self.hand.get_rect(topleft=(410, 350))
+        #self.hand_rect = self.hand.get_rect(topleft=(450, 405))
         self.min_ind = None
         self.push = None
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
         self.f_sys = pygame.font.SysFont('arial', 12)
         self.attention = None
-
 
     def push_near_object(self, val=15):
         for ind in range(len(self.world.bodies)):
@@ -165,47 +162,6 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         Check for pygame events (mainly keyboard/mouse events).
         Passes the events onto the GUI also.
         """
-        # for event in pygame.event.get():
-        #     if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
-        #         return False
-        #     elif event.type == KEYDOWN:
-        #         self._Keyboard_Event(event.key, down=True)
-        #     elif event.type == KEYUP:
-        #         self._Keyboard_Event(event.key, down=False)
-        #     elif event.type == MOUSEBUTTONDOWN:
-        #         p = self.ConvertScreenToWorld(*event.pos)
-        #         if event.button == 1:  # left
-        #             mods = pygame.key.get_mods()
-        #             if mods & KMOD_LSHIFT:
-        #                 self.ShiftMouseDown(p)
-        #             else:
-        #                 self.MouseDown(p)
-        #         elif event.button == 2:  # middle
-        #             pass
-        #         elif event.button == 3:  # right
-        #             self.rMouseDown = True
-        #         elif event.button == 4:
-        #             self.viewZoom *= 1.1
-        #         elif event.button == 5:
-        #             self.viewZoom /= 1.1
-        #     elif event.type == MOUSEBUTTONUP:
-        #         p = self.ConvertScreenToWorld(*event.pos)
-        #         if event.button == 3:  # right
-        #             self.rMouseDown = False
-        #         else:
-        #             self.MouseUp(p)
-        #     elif event.type == MOUSEMOTION:
-        #         p = self.ConvertScreenToWorld(*event.pos)
-        #
-        #         self.MouseMove(p)
-        #
-        #         if self.rMouseDown:
-        #             self.viewCenter -= (event.rel[0] /
-        #                                 5.0, -event.rel[1] / 5.0)
-        #
-        #     if GUIEnabled:
-        #         self.gui_app.event(event)  # Pass the event to the GUI
-
         right = 0
         up = 0
         rotation = 0
@@ -300,7 +256,6 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                     self.world.bodies[self.min_ind].linearVelocity[0] = 0
                     self.world.bodies[self.min_ind].linearVelocity[1] = 0
             self.hand_rect = self.hand_close.get_rect(center=self.hand_rect.center)
-
         self.arm_step['right'] = right
         self.arm_step['up'] = up
         return True
@@ -346,7 +301,6 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.gui_app.paint(self.screen)
 
             self.Print()
-                #self.DrawSolidCircle(self, attention_point, 2, (255, 0, 0))
             if self.min_ind:
                 self.screen.blit(self.hand_close, self.hand_rect)
             elif self.push:
@@ -401,12 +355,6 @@ class CollisionProcessing(CustomPygameFramework):
             shapes=b2LoopShape(vertices=self.ground_vertices, )
         )
 
-        # xlow, xhi = -5, 5
-        # ylow, yhi = 2, 35
-
-        # x, y, z = 1.0, 200.0, 3.0
-        # c1 = b2Color(x, y, z)
-
         circle = b2FixtureDef(
             shape=b2CircleShape(radius=2),
             density=1,
@@ -459,11 +407,10 @@ class CollisionProcessing(CustomPygameFramework):
         # We are going to destroy some bodies according to contact
         # points. We must buffer the bodies that should be destroyed
         # because they may belong to multiple contact points
-        #print(self.hand_rect.topleft)
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
-        if np.all(self.pixel_array != None): #and self.num_step == 5:
+        if np.all(self.pixel_array != None):
             self.num_step = 0
             img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
                                                                     self.hand_rect.topleft[0],
