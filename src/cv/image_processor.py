@@ -41,11 +41,6 @@ class ImageProcessor(Separator, RoiAnalysis):
     def mean(self, lst: list) -> float:
         return sum(lst) / len(lst)
 
-    def distance(self, p1, p2):
-        p1 = np.array(p1)
-        p2 = np.array(p2)
-        return np.sqrt(np.sum((p2 - p1) ** 2))
-
     def get_side(self, p1, p2, p3):
         return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
 
@@ -258,7 +253,23 @@ class ImageProcessor(Separator, RoiAnalysis):
             result.append(np.dot(rotation_matrix, np.array(point)) + pos)
         return result
 
+    def obj_filter(self, approx_contour):
+        i = 1
+        len_counter = len(approx_contour)
+        while i < len_counter:
+            if np.all(approx_contour[i - 1] == approx_contour[i]):
+                approx_contour = approx_contour[:i - 1] + approx_contour[i:]
+                len_counter = len(approx_contour)
+            else:
+                i += 1
+        if len(approx_contour) < 3:
+            return False
+        else:
+            return approx_contour
+
     def obj_func(self, data, approx_contour):
+        if len(approx_contour) == 0:
+            return
         obj_data = {}
         obj_data['rois'] = []
         if len(approx_contour) <= 2:
@@ -319,7 +330,9 @@ class ImageProcessor(Separator, RoiAnalysis):
                 if len(line) == 2:
                     temp_data = []
                     for approx_contour in line[0]:
-                        self.obj_func(temp_data, approx_contour)
+                        approx_contour = self.obj_filter(approx_contour)
+                        if approx_contour:
+                            self.obj_func(temp_data, approx_contour)
                     temp_obj = temp_data[0]
                     for temp in temp_data[1:]:
                         temp_obj['rois'].extend(temp['rois'])
@@ -337,4 +350,5 @@ class ImageProcessor(Separator, RoiAnalysis):
                 obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
+        print(len(data))
         return data
