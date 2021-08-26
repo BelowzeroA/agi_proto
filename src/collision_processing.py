@@ -136,8 +136,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.hand_push_r = self.hand_push
         self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
         self.hand_rect = self.hand.get_rect(topleft=(410, 350))
-        self.hand_rect = self.hand.get_rect(topleft=(410, 403))
-        self.hand_rect = self.hand.get_rect(topleft=(415, 415))
+        # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
+        # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
         self.min_ind = None
         self.push = None
         self.pixel_array = None

@@ -350,5 +350,4 @@ class ImageProcessor(Separator, RoiAnalysis):
                 obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
-        print(len(data))
         return data
