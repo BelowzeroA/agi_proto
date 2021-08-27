@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
-from sympy import Segment, Point, Line, N, acos
+from sympy import Segment, Point, N
 import Box2D
 
 from .separator import Separator
@@ -19,6 +19,7 @@ def our_zoom(vertices):
 
 class ImageProcessor(Separator, RoiAnalysis):
     def __init__(self, world, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
+        self.server = False
         self.ALPHA = 180 / np.arccos(-1)
         self.my_world = world
         self.img = filename
@@ -40,11 +41,6 @@ class ImageProcessor(Separator, RoiAnalysis):
 
     def mean(self, lst: list) -> float:
         return sum(lst) / len(lst)
-
-    def distance(self, p1, p2):
-        p1 = np.array(p1)
-        p2 = np.array(p2)
-        return np.sqrt(np.sum((p2 - p1) ** 2))
 
     def get_side(self, p1, p2, p3):
         return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
@@ -258,7 +254,23 @@ class ImageProcessor(Separator, RoiAnalysis):
             result.append(np.dot(rotation_matrix, np.array(point)) + pos)
         return result
 
+    def obj_filter(self, approx_contour):
+        i = 1
+        len_counter = len(approx_contour)
+        while i < len_counter:
+            if np.all(approx_contour[i - 1] == approx_contour[i]):
+                approx_contour = approx_contour[:i - 1] + approx_contour[i:]
+                len_counter = len(approx_contour)
+            else:
+                i += 1
+        if len(approx_contour) < 3:
+            return False
+        else:
+            return approx_contour
+
     def obj_func(self, data, approx_contour):
+        if len(approx_contour) == 0:
+            return
         obj_data = {}
         obj_data['rois'] = []
         if len(approx_contour) <= 2:
@@ -276,9 +288,11 @@ class ImageProcessor(Separator, RoiAnalysis):
             obj_data['rois'].append(
                 self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
             )
-            cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+            if self.server:
+                cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
         for point in approx_contour:
-            cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
+            if self.server:
+                cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
         obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
         dist = np.max(point_max - point_min) // 2 + 2
         width_height = point_max - point_min
@@ -319,7 +333,9 @@ class ImageProcessor(Separator, RoiAnalysis):
                 if len(line) == 2:
                     temp_data = []
                     for approx_contour in line[0]:
-                        self.obj_func(temp_data, approx_contour)
+                        approx_contour = self.obj_filter(approx_contour)
+                        if approx_contour:
+                            self.obj_func(temp_data, approx_contour)
                     temp_obj = temp_data[0]
                     for temp in temp_data[1:]:
                         temp_obj['rois'].extend(temp['rois'])

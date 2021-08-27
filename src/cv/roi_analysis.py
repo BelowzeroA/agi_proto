@@ -154,7 +154,8 @@ class RoiAnalysis():
             list_x = sorted([x_left, x_right, roi[0] - 1, roi[0]])
             list_y = sorted([y_bottom, y_top, roi[1] - 1, roi[1]])
             res = []
-
+            # if len(approx_contour) < 1:
+            #     return
             a = list(approx_contour[0])
             approx_contour = list(approx_contour)
             approx_contour.append(a)
@@ -257,31 +258,3 @@ class RoiAnalysis():
                 res[-1] = p3
             ind += 1
         return res[:-1]
-
-    def get_intersect(self, a1, a2, b1, b2):
-        """
-        Returns the point of intersection of the lines passing through a2,a1 and b2,b1.
-        a1: [x, y] a point on the first line
-        a2: [x, y] another point on the first line
-        b1: [x, y] a point on the second line
-        b2: [x, y] another point on the second line
-        """
-        a1_a2 = np.array([a2[0] - a1[0], a2[1] - a1[1]])
-        a1_b1 = np.array([b1[0] - a1[0], b1[1] - a1[1]])
-        a1_b2 = np.array([b2[0] - a1[0], b2[1] - a1[1]])
-        b1_b2 = np.array([b2[0] - b1[0], b2[1] - b1[1]])
-        b1_a1 = np.array([a1[0] - b1[0], a1[1] - b1[1]])
-        b1_a2 = np.array([a2[0] - b1[0], a2[1] - b1[1]])
-        if np.cross(a1_a2, a1_b1) * np.cross(a1_a2, a1_b2) > 0:
-            return False
-        elif np.cross(b1_b2, b1_a1) * np.cross(b1_b2, b1_a2) > 0:
-            return False
-        s = np.vstack([a1, a2, b1, b2])  # s for stacked
-        h = np.hstack((s, np.ones((4, 1))))  # h for homogeneous
-        l1 = np.cross(h[0], h[1])  # get first line
-        l2 = np.cross(h[2], h[3])  # get second line
-        x, y, z = np.cross(l1, l2)  # point of intersection
-        if z == 0:  # lines are parallel
-            return False
-        return (int(round(x / z)), int(round(y / z)))
-

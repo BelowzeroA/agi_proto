@@ -23,10 +23,10 @@ import os
 import pygame
 import numpy as np
 import Box2D
-from Box2D.examples.framework import Framework, main
+from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color)
-
+from pygame.locals import (QUIT, KEYDOWN)
 from cv.image_processor import ImageProcessor
 from agent import Agent
 from utils import path_from_root
@@ -136,7 +136,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.hand_push_r = self.hand_push
         self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
         self.hand_rect = self.hand.get_rect(topleft=(410, 350))
-        #self.hand_rect = self.hand.get_rect(topleft=(450, 405))
+        # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
+        # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
         self.min_ind = None
         self.push = None
         self.pixel_array = None
@@ -165,6 +166,10 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         right = 0
         up = 0
         rotation = 0
+
+        for event in pygame.event.get():
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
+                return False
 
         bt = pygame.key.get_pressed()
         if bt[pygame.K_f]:
@@ -260,10 +265,17 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.arm_step['up'] = up
         return True
 
-    def Print(self, str="", color=(229, 153, 153, 255)):
-        sc_text = self.f_sys.render('Surprise: %s' % (agent.surprise), 1, color, (0, 0, 0))
-        text_pos = sc_text.get_rect(topleft=(10, 30))
+    def Print(self, my_str="", color=(229, 153, 153, 255)):
+        sc_text = self.f_sys.render(
+            'Surprise: %s' % agent.surprise, 1, color, (0, 0, 0)
+        )
+        sc_text_2 = self.f_sys.render(
+            'Current tick: %s' % self.num_step, 1, color, (0, 0, 0)
+        )
+        text_pos = sc_text.get_rect(topleft=(13, 13))
+        text_pos_2 = sc_text.get_rect(topleft=(13, 33))
         self.screen.blit(sc_text, text_pos)
+        self.screen.blit(sc_text_2, text_pos_2)
         """
         Переопределили функцию которая делает тексты
         Draw some text at the top status lines
@@ -411,7 +423,7 @@ class CollisionProcessing(CustomPygameFramework):
         self.world.bodies[-2].awake = True
 
         if np.all(self.pixel_array != None):
-            self.num_step = 0
+            #self.num_step = 0
             img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
                                                                     self.hand_rect.topleft[0],
                                                                     self.hand_rect.topleft[1],

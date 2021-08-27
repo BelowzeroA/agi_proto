@@ -3,6 +3,11 @@ import shapely
 
 class Separator():
 
+    def distance(self, p1, p2):
+        p1 = np.array(p1)
+        p2 = np.array(p2)
+        return np.sqrt(np.sum((p2 - p1) ** 2))
+
     def get_intersect(self, a1, a2, b1, b2):
         """
         Returns the point of intersection of the lines passing through a2,a1 and b2,b1.
@@ -54,20 +59,34 @@ class Separator():
         point = shapely.geometry.Point(point)
         return segment.contains(point)
 
-    def make_correctly(self, segment):
+    def make_correctly(self, segment, end_point):
         res = [segment[0], ]
-        for i in range(1, len(segment) - 1):
-            if self.is_segment_contains_point([segment[0], segment[-1]], segment[i]):
+        if len(segment) < 2:
+            return segment
+        for i in range(1, len(segment)):
+            if self.is_segment_contains_point([segment[0], end_point], segment[i]):
                 res.append(segment[i])
-            elif self.is_segment_contains_point([segment[0], segment[-1]],
+            elif self.is_segment_contains_point([segment[0], end_point],
                                                 (segment[i][0], segment[i][1] - 1)):
                 res.append((segment[i][0], segment[i][1] - 1))
-            elif self.is_segment_contains_point([segment[0], segment[-1]],
+            elif self.is_segment_contains_point([segment[0], end_point],
                                                 (segment[i][0], segment[i][1] + 1)):
                 res.append((segment[i][0], segment[i][1] + 1))
             else:
                 continue
-        res.append(segment[-1])
+        #res.append(segment[-1])
+        return res
+
+    def make_correctly(self, segment):
+        if len(segment) <= 2:
+            return segment
+        res = [segment[0], ]
+        temp = segment[1:]
+        temp.sort(key=lambda x: x[0])
+        if self.distance(res[0], temp[0]) < self.distance(res[0], temp[-1]):
+            res.extend(temp)
+        else:
+            res = temp + res
         return res
 
     def separate_hand_obj(self, polygon, arm):
@@ -77,33 +96,47 @@ class Separator():
         obj_flag = []
         arm_flag = []
         for i in range(len(polygon)):
-            temp_l = [polygon[i],]
+            temp_l = [polygon[i], ]
             for j in range(len(arm)):
                 intersect_res = self.get_intersect(polygon[i], polygon[(i + 1) % len(polygon)],
                                                    arm[j], arm[(j + 1) % len(arm)])
                 if intersect_res:
                     temp_l.append(intersect_res)
                     list_of_triples.append([arm[j], intersect_res, arm[(j + 1) % len(arm)]])
-            # temp_l = self.make_correctly(temp_l)
-            temp_l.sort(key=lambda x: x[0])
+            temp_l = self.make_correctly(temp_l)
             obj_flag.extend([1] + [0] * (len(temp_l) - 1))
-            if polygon[i] == temp_l[0]:
+            if np.all(polygon[i] == temp_l[0]):
                 temp_l.append(polygon[(i + 1) % len(polygon)])
                 obj_ext.extend(temp_l[:-1])
             else:
-                temp_l = [polygon[(i + 1) % len(polygon)],] + temp_l
+                temp_l = [polygon[(i + 1) % len(polygon)], ] + temp_l
                 temp_l.reverse()
                 obj_ext.extend(temp_l[:-1])
         arm_ext = []
         if len(list_of_triples) == 0:
             return [polygon, ]
         for idx in range(len(arm)):
-            arm_ext.append(arm[idx])
-            arm_flag.append(1)
+            temp_l = [arm[idx], ]
+            point_b = arm[(idx + 1) % len(arm)]
             for triple in list_of_triples:
-                if np.all(triple[0] == arm[idx]) or np.all(triple[-1] == arm[idx]):
-                    arm_ext.append(triple[1])
-                    arm_flag.append(0)
+                if (np.all(triple[0] == arm[idx]) and np.all(triple[2] == point_b) or
+                        np.all(triple[2] == arm[idx]) and np.all(triple[0] == point_b)):
+                    temp_l.append(triple[1])
+            temp_l = self.make_correctly(temp_l)
+            arm_flag.extend([1] + [0] * (len(temp_l) - 1))
+            if np.all(arm[idx] == temp_l[0]):
+                temp_l.append(arm[(idx + 1) % len(arm)])
+                arm_ext.extend(temp_l[:-1])
+            else:
+                temp_l = [arm[(idx + 1) % len(arm)], ] + temp_l
+                temp_l.reverse()
+                arm_ext.extend(temp_l[:-1])
+            # arm_ext.append(arm[idx])
+            # arm_flag.append(1)
+            # for triple in list_of_triples:
+            #     if np.all(triple[0] == arm[idx]) or np.all(triple[-1] == arm[idx]):
+            #         arm_ext.append(triple[1])
+            #         arm_flag.append(0)
         idx = 0
         while obj_flag[idx] != 0 and idx + 1 < len(obj_flag):
             idx += 1
@@ -118,7 +151,8 @@ class Separator():
         for idx in range(len(obj_ext)):
             if obj_flag[idx] == 0:
                 for j in range(len(arm_ext)):
-                    if np.all(obj_ext[idx] == arm_ext[j]):
+                    if (np.all(obj_ext[idx] == arm_ext[j]) and
+                            obj_flag[idx] == 0 and arm_flag[j] == 0):
                         obj_arm_dict[idx] = j
         tail = 0
         count_ones = 0
@@ -126,7 +160,8 @@ class Separator():
             if obj_flag[idx] == 0 and obj_flag[(idx + 1) % len(obj_flag)] == 0 and count_ones == 0:
                 tail = idx + 1
             elif obj_flag[idx] == 0 and obj_flag[(idx + 1) % len(obj_flag)] == 1:
-                head = idx + 1
+                tail = idx
+                head = (idx + 1) % len(obj_flag)
                 count_ones += 1
             elif obj_flag[idx] == 1 and obj_flag[(idx + 1) % len(obj_flag)] == 1:
                 head = idx + 1
