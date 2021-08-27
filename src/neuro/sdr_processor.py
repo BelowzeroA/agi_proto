@@ -13,19 +13,22 @@ class SDRProcessor:
 
     def process_input(self, pattern: NeuralPattern) -> NeuralPattern:
         output, connections = self._get_raw_output(pattern)
-        output_pattern = None
-        for attempted_pattern in self.area.patterns:
-            if self.patterns_similar(attempted_pattern, output):
-                output_pattern = attempted_pattern
-                break
-
-        pattern_is_new = False
-        if not output_pattern:
-            pattern_is_new = True
-            output_pattern = NeuralPattern(self.area.output_space_size, value=output)
-            self.area.patterns.append(output_pattern)
-            self.area.highway_connections.update(connections)
-        return output_pattern, pattern_is_new
+        # output_pattern = None
+        # for attempted_pattern in self.area.patterns:
+        #     if self.patterns_similar(attempted_pattern, output):
+        #         output_pattern = attempted_pattern
+        #         break
+        # pattern_is_new = False
+        # if not output_pattern:
+        #     pattern_is_new = True
+        #     output_pattern = NeuralPattern(self.area.output_space_size, value=output)
+        #     self.area.patterns.append(output_pattern)
+        #     self.area.highway_connections.update(connections)
+        # return output_pattern, pattern_is_new
+        output_pattern = NeuralPattern(self.area.output_space_size, value=output)
+        # self.area.patterns.append(output_pattern)
+        self.area.highway_connections.update(connections)
+        return output_pattern
 
     def patterns_similar(self, pattern1: NeuralPattern, pattern2: Union[NeuralPattern, List[int]]):
         value = pattern2
@@ -40,7 +43,7 @@ class SDRProcessor:
         if len(connections) == 0:
             output_space_indexes = list(range(self.area.output_space_size))
 
-            ratio = 0.15 * (self.area.output_space_size * self.area.output_norm) / pattern.value_size
+            ratio = 0.12 * (self.area.output_space_size * self.area.output_norm) / pattern.value_size
             connection_density = int(ratio)
             for idx in range(pattern.space_size):
                 connections.append(random.sample(output_space_indexes, connection_density))
@@ -63,11 +66,14 @@ class SDRProcessor:
         output_norm = self.area.output_norm
         target_cells_activated = []
         activated_connections = []
+        dropout = 0.0
         for idx in pattern.value:
             outgoing_connections = connections[idx]
-            outgoing_activations = [c for c in outgoing_connections if random.randint(0, 9) < 1]
+            outgoing_activations = [c for c in outgoing_connections if random.randint(0, 99) < 10]
             highway_activations = [c[1] for c in self.area.highway_connections if c[0] == idx]
-            outgoing_activations.extend(highway_activations * 2)
+            # outgoing_activations.extend(highway_activations * 2)
+            # highway_activations = random.sample(highway_activations, int(len(highway_activations) * (1 - dropout)))
+            outgoing_activations.extend(highway_activations)
             activated_connections.extend([(idx, target) for target in outgoing_activations])
             target_cells_activated.extend(outgoing_activations)
 

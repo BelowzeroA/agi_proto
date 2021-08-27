@@ -36,6 +36,7 @@ class VisualAttentionZone(NeuralZone):
             output_norm=HyperParameters.encoder_norm,
             min_inputs=2,
             surprise_level=0,
+            recognition_threshold=0.99
         )
 
         self.container.add_connection(source=self.attention_location_horizontal, target=self.attention_location)

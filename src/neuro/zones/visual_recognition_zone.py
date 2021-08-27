@@ -89,7 +89,7 @@ class VisualRecognitionZone(NeuralZone):
 
     def activate_on_body(self, body_data, prev_body_data):
         self._activate_eye_shift_areas(body_data, prev_body_data)
-        self.primitives_receptive_area.activate_on_body(body_data['general_presentation'])
+        self.primitives_receptive_area.activate_on_body(body_data['general_presentation'], body_data['name'])
 
     def _activate_eye_shift_areas(self, body_data, prev_body_data):
         from agent import ROOM_WIDTH, ROOM_HEIGHT
@@ -108,6 +108,32 @@ class VisualRecognitionZone(NeuralZone):
 
         eye_shift_left, eye_shift_right = (-1, shift_x) if shift_x > 0 else (-shift_x, -1)
         eye_shift_up, eye_shift_down = (-1, shift_y) if shift_y > 0 else (-shift_y, -1)
+
+        horizontal_shift = eye_shift_left if eye_shift_left > 0 else eye_shift_right
+        vertical_shift = eye_shift_down if eye_shift_down > 0 else eye_shift_up
+
+        ratio = horizontal_shift / vertical_shift if vertical_shift > 0 else 10
+
+        if 1.66 >= ratio >= 0.66:
+            horizontal_shift_encoded = 1
+            vertical_shift_encoded = 1
+        elif 3 >= ratio >= 1.66:
+            horizontal_shift_encoded = 1
+            vertical_shift_encoded = 0.5
+        elif ratio > 3:
+            horizontal_shift_encoded = 1
+            vertical_shift_encoded = 0
+        elif 0.66 > ratio >= 0.33:
+            horizontal_shift_encoded = 0.5
+            vertical_shift_encoded = 1
+        else:
+            horizontal_shift_encoded = 0
+            vertical_shift_encoded = 1
+
+        eye_shift_left = horizontal_shift_encoded if eye_shift_left >= 0 else -1
+        eye_shift_right = horizontal_shift_encoded if eye_shift_right >= 0 else -1
+        eye_shift_up = vertical_shift_encoded if eye_shift_up >= 0 else -1
+        eye_shift_down = vertical_shift_encoded if eye_shift_down >= 0 else -1
 
         self.shift_right_receptive_area.activate_on_body(eye_shift_right)
         self.shift_left_receptive_area.activate_on_body(eye_shift_left)

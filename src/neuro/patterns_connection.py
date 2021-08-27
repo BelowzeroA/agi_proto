@@ -7,3 +7,4 @@ class PatternsConnection:
         self.source = source
         self.target = target
         self.weight = 0
+        self.tick = 0

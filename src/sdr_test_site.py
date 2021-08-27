@@ -1,57 +1,94 @@
 
 import random
 
+from agent import Agent
+from neuro.areas.encoder_area import EncoderArea
 from neuro.hyper_params import HyperParameters
 from neuro.container import Container
-from neuro.encoder_area import EncoderArea
 from neuro.network import Network
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
+from neuro.neural_zone import NeuralZone
+from neuro.sdr_processor import SDRProcessor
+
+space_size = 1000
+value_size = 20
+num_trials = 100
+shift_coeff = 0.3
+recognition_threshold = 0.8
 
 
-def make_firing_pattern(container, area, coefficient=0.2):
-    initially_active_neurons_num = int(HyperParameters.receptive_neurons_num * coefficient)
-    neurons = container.get_area_neurons(area)
-    selected = random.sample(neurons, initially_active_neurons_num)
-    return selected
-
-
-def change_firing_pattern(pattern, container, area, coefficient):
-    num_neurons_to_be_replaced = int(len(pattern) * coefficient)
-    neurons = container.get_area_neurons(area)
-    new_pattern = random.sample(pattern, len(pattern) - num_neurons_to_be_replaced)
-    while len(new_pattern) < len(pattern):
-        neuron = random.choice(neurons)
-        if neuron not in pattern and neuron not in new_pattern:
-            new_pattern.append(neuron)
-    return new_pattern
+def change_pattern(pattern, coefficient):
+    num_neurons_to_be_replaced = int(pattern.value_size * coefficient)
+    new_value = random.sample(pattern.value, pattern.value_size - num_neurons_to_be_replaced)
+    while len(new_value) < pattern.value_size:
+        val = random.choice(range(pattern.space_size))
+        if val not in new_value:
+            new_value.append(val)
+    new_value.sort()
+    return NeuralPattern(space_size=pattern.space_size, value=new_value)
 
 
 def main():
-    random.seed(0)
-    container = Container()
-    receptive_area = NeuralArea(name='receptive')
-    presentation_area = EncoderArea(name='representations', output_space_size=1000, output_activity_norm=20)
+    agent = Agent()
 
-    container.add_area(receptive_area)
-    container.add_area(presentation_area)
+    random.seed(2)
 
-    container.add_connection(source=receptive_area, target=presentation_area)
+    zone = NeuralZone(name='fake', agent=agent)
+    area = EncoderArea.add(
+        name='representations',
+        agent=agent,
+        zone=zone,
+        output_space_size=space_size,
+        output_norm=value_size,
+        recognition_threshold=recognition_threshold
+    )
 
-    network = Network(container=container)
+    sdr = SDRProcessor(area)
+    common_pattern = NeuralPattern(space_size=space_size, value_size=value_size)
+    common_pattern.generate_random()
 
-    shift = 0.1
+    patterns = []
 
-    pattern = NeuralPattern(space_size=64, value_size=7)
-    pattern.generate_random()
-    pattern.value = [1, 4, 8, 28, 35, 48, 58]
+    false_positives = 0
+    false_negatives = 0
+    for i in range(num_trials):
+        random_pattern = NeuralPattern(space_size=space_size, value_size=value_size)
+        random_pattern.generate_random()
 
-    receptive_area.output = pattern
+        combined_pattern = SDRProcessor.make_combined_pattern(
+            [random_pattern, common_pattern],
+            [space_size, space_size]
+        )
 
-    network.run(max_iter=2)
+        out_pattern1, new = area.recognize_process_input(combined_pattern)
 
-    pattern.value = [2, 5, 9, 29, 36, 49, 60]
-    network.run(max_iter=2)
+        if not new:
+            false_positives += 1
+        # print(f'{i}: {new} {out_pattern1}')
+
+        shifted_pattern = change_pattern(combined_pattern, shift_coeff)
+        out_pattern1, new = area.recognize_process_input(shifted_pattern)
+        if new:
+            false_negatives += 1
+
+        # patterns.append(out_pattern1)
+        #
+        # if len(patterns) > 1:
+        #     prev_pattern = patterns[-2:][0]
+        #     intersection = set(out_pattern1.value) & set(prev_pattern.value)
+        #     # print(len(intersection))
+
+    precision = (num_trials - false_positives) / num_trials
+    recall = (num_trials - false_negatives) / num_trials
+
+    f1 = 2 * precision * recall / (recall + precision)
+    print(f'f1: {f1}, precision: {precision}, recall: {recall}')
+
+    print(len(area.highway_connections))
+
+    # intersection = set(out_pattern1.value) & set(out_pattern2.value)
+    # print(len(intersection))
 
 
 if __name__ == '__main__':
