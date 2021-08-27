@@ -267,10 +267,10 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
 
     def Print(self, my_str="", color=(229, 153, 153, 255)):
         sc_text = self.f_sys.render(
-            'Surprise: %s' % agent.surprise, 1, color, (0, 0, 0)
+            'Surprise: %s' % self.agent_message['surprise'], 1, color, (0, 0, 0)
         )
         sc_text_2 = self.f_sys.render(
-            'Current tick: %s' % self.num_step, 1, color, (0, 0, 0)
+            'Current tick: %s' % self.agent_message['current_tick'], 1, color, (0, 0, 0)
         )
         text_pos = sc_text.get_rect(topleft=(13, 13))
         text_pos_2 = sc_text.get_rect(topleft=(13, 33))
@@ -340,6 +340,7 @@ class CollisionProcessing(CustomPygameFramework):
     last_step = None
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
+    agent_message = {'surprise': 0, 'current_tick': 0}
     x_offset = -10
     y_offset = 10
     grab = False
@@ -423,7 +424,6 @@ class CollisionProcessing(CustomPygameFramework):
         self.world.bodies[-2].awake = True
 
         if np.all(self.pixel_array != None):
-            #self.num_step = 0
             img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
                                                                     self.hand_rect.topleft[0],
                                                                     self.hand_rect.topleft[1],
@@ -431,8 +431,7 @@ class CollisionProcessing(CustomPygameFramework):
                                                                     self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            self.attention = agent.env_step(self.cur_step)
-
+            self.agent_message = agent.env_step(self.cur_step)
         self.num_step += 1
 
         super(CollisionProcessing, self).Step(settings)
