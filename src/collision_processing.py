@@ -132,7 +132,7 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                                                                    self.hand_close.get_height() // 20))
         self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
         self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
-                                                                   self.hand_push.get_height() // 25))
+                                                                 self.hand_push.get_height() // 25))
         self.hand_push_r = self.hand_push
         self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
         self.hand_rect = self.hand.get_rect(topleft=(410, 350))
@@ -321,10 +321,10 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
                 self.screen.blit(self.hand, self.hand_rect)
             attention_point = [-1, -1]
             self.pixel_array = self.get_imag(pygame.display.get_surface())
-            if (self.attention and self.attention['attention-spot']['x'] != -1 and
-                    self.attention['attention-spot']['y'] != -1):
-                attention_point[0] = self.attention['attention-spot']['x']
-                attention_point[1] = self.attention['attention-spot']['y']
+            if (self.agent_message and self.agent_message['attention-spot']['x'] != -1 and
+                    self.agent_message['attention-spot']['y'] != -1):
+                attention_point[0] = self.agent_message['attention-spot']['x']
+                attention_point[1] = self.agent_message['attention-spot']['y']
                 pygame.draw.circle(self.screen, (255, 0, 0), attention_point, 30, 1)
             pygame.display.update()
             clock.tick(HZ)
@@ -340,7 +340,8 @@ class CollisionProcessing(CustomPygameFramework):
     last_step = None
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
-    agent_message = {'surprise': 0, 'current_tick': 0}
+    agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
+                                                                          'y': -1}}
     x_offset = -10
     y_offset = 10
     grab = False
