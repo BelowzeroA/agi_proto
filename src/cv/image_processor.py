@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
-from sympy import Segment, Point, Line, N, acos
+from sympy import Segment, Point, N
 import Box2D
 
 from .separator import Separator
@@ -19,6 +19,7 @@ def our_zoom(vertices):
 
 class ImageProcessor(Separator, RoiAnalysis):
     def __init__(self, world, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
+        self.server = False
         self.ALPHA = 180 / np.arccos(-1)
         self.my_world = world
         self.img = filename
@@ -287,9 +288,11 @@ class ImageProcessor(Separator, RoiAnalysis):
             obj_data['rois'].append(
                 self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
             )
-            cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+            if self.server:
+                cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
         for point in approx_contour:
-            cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
+            if self.server:
+                cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
         obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
         dist = np.max(point_max - point_min) // 2 + 2
         width_height = point_max - point_min
