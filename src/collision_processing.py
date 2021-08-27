@@ -23,10 +23,10 @@ import os
 import pygame
 import numpy as np
 import Box2D
-from Box2D.examples.framework import Framework, main
+from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color)
-
+from pygame.locals import (QUIT, KEYDOWN)
 from cv.image_processor import ImageProcessor
 from agent import Agent
 from utils import path_from_root
