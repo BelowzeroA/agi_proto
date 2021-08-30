@@ -208,8 +208,8 @@ class Agent:
             attention_x = int(self.attention_spot['attention-horizontal'] * ROOM_WIDTH)
             attention_y = int(self.attention_spot['attention-vertical'] * ROOM_HEIGHT)
         return {
+            'current_tick': self.network.current_tick,
             'surprise': self.surprise,
             'actions': self.actions,
             'attention-spot': {'x': attention_x, 'y': attention_y}
         }
-

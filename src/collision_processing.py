@@ -19,11 +19,12 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import os
+from argparse import ArgumentParser
 
 import pygame
 import numpy as np
 import Box2D
-from Box2D.examples.framework import Framework, main, Keys
+from Box2D.examples.framework import Framework, Keys
 from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color)
 from Box2D.examples.settings import fwSettings
@@ -35,7 +36,6 @@ from utils import path_from_root
 from agent_hand import AgentHand
 
 
-SERVER = True
 HZ = 34
 
 
@@ -64,6 +64,14 @@ def our_zoom(vertices):
     x = vertices[0]
     y = vertices[1]
     return x * 10 + 320, (20 - y) * 10 + 240
+
+def parse_arguments():
+    parser = ArgumentParser(__doc__)
+    parser.add_argument("--server", "-s", help="run without pygame?", default=False)
+    return parser.parse_args()
+
+args = parse_arguments()
+SERVER = args.server
 
 
 class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
@@ -125,7 +133,6 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
         super().__init__()
         if not SERVER:
             self.renderer = CustomDraw(surface=self.screen, test=self)
-            self.world.renderer = self.renderer
             self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
             self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
             self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
@@ -140,6 +147,8 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
             # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
             self.f_sys = pygame.font.SysFont('arial', 12)
+        else:
+            self.agent_hand = AgentHand()
         self.world.renderer = self.renderer
         self.min_ind = None
         self.push = None
@@ -165,6 +174,10 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
         Check for pygame events (mainly keyboard/mouse events).
         Passes the events onto the GUI also.
         """
+        for event in pygame.event.get():
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
+                return False
+
         right = 0
         up = 0
         rotation = 0
@@ -263,10 +276,17 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
         self.arm_step['up'] = up
         return True
 
-    def Print(self, str="", color=(229, 153, 153, 255)):
-        sc_text = self.f_sys.render('Surprise: %s' % (agent.surprise), 1, color, (0, 0, 0))
-        text_pos = sc_text.get_rect(topleft=(10, 30))
+    def Print(self, my_str="", color=(229, 153, 153, 255)):
+        sc_text = self.f_sys.render(
+            'Surprise: %s' % self.agent_message['surprise'], 1, color, (0, 0, 0)
+        )
+        sc_text_2 = self.f_sys.render(
+            'Current tick: %s' % self.agent_message['current_tick'], 1, color, (0, 0, 0)
+        )
+        text_pos = sc_text.get_rect(topleft=(13, 13))
+        text_pos_2 = sc_text.get_rect(topleft=(13, 33))
         self.screen.blit(sc_text, text_pos)
+        self.screen.blit(sc_text_2, text_pos_2)
         """
         Переопределили функцию которая делает тексты
         Draw some text at the top status lines
@@ -312,10 +332,10 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 self.screen.blit(self.hand, self.hand_rect)
             attention_point = [-1, -1]
             self.pixel_array = self.get_imag(pygame.display.get_surface())
-            if (self.attention and self.attention['attention-spot']['x'] != -1 and
-                    self.attention['attention-spot']['y'] != -1):
-                attention_point[0] = self.attention['attention-spot']['x']
-                attention_point[1] = self.attention['attention-spot']['y']
+            if (self.agent_message and self.agent_message['attention-spot']['x'] != -1 and
+                    self.agent_message['attention-spot']['y'] != -1):
+                attention_point[0] = self.agent_message['attention-spot']['x']
+                attention_point[1] = self.agent_message['attention-spot']['y']
                 pygame.draw.circle(self.screen, (255, 0, 0), attention_point, 30, 1)
             pygame.display.update()
             clock.tick(HZ)
@@ -328,17 +348,22 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
 
 class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
                           else CustomPygameFramework):
-    # arm_step = {'right': 0, 'up': 0}
+    arm_step = {'right': 0, 'up': 0}
     # settings = sfwSettings
     if SERVER:
         agent_hand = AgentHand()
     num_step = 0
     last_step = None
+    agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
+                                                                          'y': -1}}
+
     name = "CollisionProcessing"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
     y_offset = 10
     grab = False
+    min_ind = False
+    push = False
     ground_vertices = [(-32, 38), (-32, 0), (32, 0), (32, 38)]
     our_color = [
         (255, 0, 0),
@@ -393,8 +418,67 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         )
         triangle_left.My_color = (1, 1, 1)
 
-    def Keyboard(self, key):
-        pass
+    def Keyboard(self):
+        right = 0
+        up = 0
+        rotation = 0
+
+        if False:
+            if self.push:
+                self.push = False
+                self.hand_rect = self.hand.get_rect(center=self.hand_rect.center)
+            else:
+                self.push = 1
+                self.hand_rect = self.hand_push.get_rect(center=self.hand_rect.center)
+
+        if False:
+            if self.min_ind:
+                self.world.bodies[self.min_ind].gravityScale = 1.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+                self.min_ind = None
+
+        if agent.actions['move_left']:
+            k = 1 if agent.actions['move_left'] == 2 else 0.5
+            right -= 10 * k
+            if not self.agent_hand.left < -31.9:
+                self.agent_hand -= (0.5 * k, 0)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[0] -= 0.5 * k
+                elif self.push:
+                    self.hand_push = self.hand_push_l
+                    self.push_near_object(val=25)
+
+        if agent.actions['move_right']:
+            k = 1 if agent.actions['move_right'] == 2 else 0.5
+            right += 10 * k
+            if not self.agent_hand.right > 31.9:
+                self.agent_hand += (0.5 * k, 0)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[0] += 0.5 * k
+                elif self.push:
+                    self.hand_push = self.hand_push_r
+                    self.push_near_object(val=25)
+
+        if agent.actions['move_up']:
+            k = 1 if agent.actions['move_up'] == 2 else 0.5
+            up += 10 * k
+            if not self.agent_hand.top > 16:
+                self.agent_hand += (0, 0.5 * k)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[1] += 0.5 * k
+
+        if agent.actions['move_down']:
+            k = 1 if agent.actions['move_down'] == 2 else 0.5
+            up -= 10 * k
+            if not self.agent_hand.bottom < 0.1:
+                self.agent_hand -= (0, 0.5 * k)
+            if self.min_ind:
+                self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
+
+        self.arm_step['right'] = right
+        self.arm_step['up'] = up
+        return True
 
     def get_imag(self, pixel_array):
         buffer = pygame.PixelArray(pixel_array)
@@ -419,26 +503,28 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         self.world.bodies[-2].awake = True
 
         if (not SERVER) and np.all(self.pixel_array != None):
-            self.num_step = 0
-            img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
+            img_processor = ImageProcessor(self.world, SERVER, self.pixel_array, arm_size=(
                 self.hand_rect.topleft[0],
                 self.hand_rect.topleft[1],
                 self.hand_rect.size[0],
                 self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            self.attention = agent.env_step(self.cur_step)
+            self.agent_message = agent.env_step(self.cur_step)
 
         elif SERVER:
-            self.num_step = 0
-            img_processor = ImageProcessor(self.world, arm_size=(
-                self.agent_hand.left,
-                self.agent_hand.top,
-                self.agent_hand.right - self.agent_hand.left,
-                self.agent_hand.top - self.agent_hand.bottom))
+            img_processor = ImageProcessor(self.world,
+                                           SERVER,
+                                           arm_size=(
+                                               self.agent_hand.left,
+                                               self.agent_hand.top,
+                                               self.agent_hand.right - self.agent_hand.left,
+                                               self.agent_hand.top - self.agent_hand.bottom),
+                                           arm=self.agent_hand.hand_contour)
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            self.attention = agent.env_step(self.cur_step)
+            self.agent_message = agent.env_step(self.cur_step)
+            self.Keyboard()
 
         self.num_step += 1
 
@@ -459,5 +545,7 @@ def main(test_class):
     test.run()
 
 
+
 if __name__ == "__main__":
     main(CollisionProcessing)
+

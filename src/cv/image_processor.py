@@ -2,7 +2,7 @@ from typing import List, Tuple
 
 import cv2 as cv
 import numpy as np
-from sympy import Segment, Point, Line, N, acos
+from sympy import Segment, Point, N
 import Box2D
 
 from .separator import Separator
@@ -18,13 +18,21 @@ def our_zoom(vertices):
 
 
 class ImageProcessor(Separator, RoiAnalysis):
-    def __init__(self, world, filename='pics/test_picture_3.JPG', arm_size=(0, 0, 0, 0)):
+    def __init__(self,
+                 world,
+                 server=False,
+                 filename='pics/test_picture_3.JPG',
+                 arm_size=(0, 0, 0, 0),
+                 arm=None):
+        self.server = server
         self.ALPHA = 180 / np.arccos(-1)
         self.my_world = world
         self.img = filename
         #self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         self.arm_size = arm_size
         self.pi_alpha = np.pi / 180
+        if self.server:
+            self.agent_hand = [our_zoom(point) for point in arm]
         self.hand_polygon = np.array([[12,  0],
                                       [10, 14],
                                       [ 6,  3],
@@ -287,9 +295,11 @@ class ImageProcessor(Separator, RoiAnalysis):
             obj_data['rois'].append(
                 self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
             )
-            cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+            if not self.server:
+                cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
         for point in approx_contour:
-            cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
+            if not self.server:
+                cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
         obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
         dist = np.max(point_max - point_min) // 2 + 2
         width_height = point_max - point_min
@@ -312,7 +322,10 @@ class ImageProcessor(Separator, RoiAnalysis):
 
     def run(self, last_position=None):
         data = []
-        arm = self.hand_polygon + np.array([self.arm_size[0] + 1, self.arm_size[1]])
+        if self.server:
+            arm = self.agent_hand
+        else:
+            arm = self.hand_polygon + np.array([self.arm_size[0] + 1, self.arm_size[1]])
         if len(self.my_world.bodies) != 0:
             for world_body in self.my_world.bodies:
                 if len(world_body.fixtures) == 0:
@@ -350,4 +363,5 @@ class ImageProcessor(Separator, RoiAnalysis):
                 obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
+        print([obj['center'] for obj in data])
         return data

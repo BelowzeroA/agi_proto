@@ -205,20 +205,21 @@ class RoiAnalysis():
                                                                          dtype=np.float32)) / quadrant_norm)
                 result['quadrants'][quadrant_number].append(our_line)
             # for color
-            for ind in range(1, len(res)):
-                if res[ind] == 0 or res[ind - 1] == 0:
-                    continue
-                if True:
-                    x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
-                    y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
-                    try_point = shapely.geometry.Point(x_mean + 3, y_mean)
-                    if polygon.contains(try_point):
-                        result['color'] = img[y_mean, x_mean + 3]
-                        break
-                    try_point = shapely.geometry.Point(x_mean - 3, y_mean)
-                    if polygon.contains(try_point):
-                        result['color'] = img[y_mean, x_mean - 3]
-                        break
+            if not self.server:
+                for ind in range(1, len(res)):
+                    if res[ind] == 0 or res[ind - 1] == 0:
+                        continue
+                    if True:
+                        x_mean = int((res[ind][0] + res[ind - 1][0]) / 2)
+                        y_mean = int((res[ind][1] + res[ind - 1][1]) / 2)
+                        try_point = shapely.geometry.Point(x_mean + 3, y_mean)
+                        if polygon.contains(try_point):
+                            result['color'] = img[y_mean, x_mean + 3]
+                            break
+                        try_point = shapely.geometry.Point(x_mean - 3, y_mean)
+                        if polygon.contains(try_point):
+                            result['color'] = img[y_mean, x_mean - 3]
+                            break
         except ValueError:
             pass
         return result
