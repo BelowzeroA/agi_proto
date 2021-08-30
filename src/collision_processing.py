@@ -26,12 +26,16 @@ import Box2D
 from Box2D.examples.framework import Framework, main, Keys
 from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color)
+from Box2D.examples.settings import fwSettings
 from pygame.locals import (QUIT, KEYDOWN)
 from cv.image_processor import ImageProcessor
 from agent import Agent
 from utils import path_from_root
 
+from agent_hand import AgentHand
 
+
+SERVER = True
 HZ = 34
 
 
@@ -94,10 +98,6 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
                         temp.append((p[0] - 3, p[1] - 4))
             pygame.draw.polygon(self.surface, color, temp, 0)
 
-            # print(our_zoom(self.test.world.bodies[5].worldCenter))
-            # print(center_of_mass(vertices))
-            # pygame.draw.polygon(self.surface, b2Color(0.9, 0.7, 0.7), vertices, 1)
-
     def DrawSolidCircle(self, center, radius, axis, color):
         """
         Draw a solid circle given the center, radius, axis of orientation and
@@ -106,7 +106,6 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
         for ind in range(len(self.test.world.bodies)):
             u = our_zoom(self.test.world.bodies[ind].worldCenter)
             if self.EPS > abs(u[0] - center[0]) and self.EPS > abs(u[0] - center[0]):
-                cur_ind = ind
                 color = self.test.our_color[ind]
 
         radius *= self.zoom
@@ -119,30 +118,33 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
                            center, radius - 3, 0)
 
 
-class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFramework):
+class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
+                            else Box2D.examples.backends.pygame_framework.PygameFramework):
 
     def __init__(self):
         super().__init__()
-        self.renderer = CustomDraw(surface=self.screen, test=self)
+        if not SERVER:
+            self.renderer = CustomDraw(surface=self.screen, test=self)
+            self.world.renderer = self.renderer
+            self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
+            self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
+            self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
+            self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
+                                                                       self.hand_close.get_height() // 20))
+            self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
+            self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
+                                                                     self.hand_push.get_height() // 25))
+            self.hand_push_r = self.hand_push
+            self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
+            self.hand_rect = self.hand.get_rect(topleft=(410, 350))
+            # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
+            # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
+            self.f_sys = pygame.font.SysFont('arial', 12)
         self.world.renderer = self.renderer
-        self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
-        self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
-        self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
-        self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
-                                                                   self.hand_close.get_height() // 20))
-        self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
-        self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
-                                                                   self.hand_push.get_height() // 25))
-        self.hand_push_r = self.hand_push
-        self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
-        self.hand_rect = self.hand.get_rect(topleft=(410, 350))
-        # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
-        # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
         self.min_ind = None
         self.push = None
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
-        self.f_sys = pygame.font.SysFont('arial', 12)
         self.attention = None
 
     def push_near_object(self, val=15):
@@ -324,7 +326,12 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.world.renderer = None
 
 
-class CollisionProcessing(CustomPygameFramework):
+class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
+                          else CustomPygameFramework):
+    # arm_step = {'right': 0, 'up': 0}
+    # settings = sfwSettings
+    if SERVER:
+        agent_hand = AgentHand()
     num_step = 0
     last_step = None
     name = "CollisionProcessing"
@@ -411,13 +418,24 @@ class CollisionProcessing(CustomPygameFramework):
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
-        if np.all(self.pixel_array != None):
+        if (not SERVER) and np.all(self.pixel_array != None):
             self.num_step = 0
             img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
-                                                                    self.hand_rect.topleft[0],
-                                                                    self.hand_rect.topleft[1],
-                                                                    self.hand_rect.size[0],
-                                                                    self.hand_rect.size[1]))
+                self.hand_rect.topleft[0],
+                self.hand_rect.topleft[1],
+                self.hand_rect.size[0],
+                self.hand_rect.size[1]))
+            self.cur_step = img_processor.run(self.last_step)
+            self.last_step = [obj['center'] for obj in self.cur_step]
+            self.attention = agent.env_step(self.cur_step)
+
+        elif SERVER:
+            self.num_step = 0
+            img_processor = ImageProcessor(self.world, arm_size=(
+                self.agent_hand.left,
+                self.agent_hand.top,
+                self.agent_hand.right - self.agent_hand.left,
+                self.agent_hand.top - self.agent_hand.bottom))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
             self.attention = agent.env_step(self.cur_step)
@@ -426,6 +444,19 @@ class CollisionProcessing(CustomPygameFramework):
 
         super(CollisionProcessing, self).Step(settings)
 
+
+def main(test_class):
+    """
+    Loads the test class and executes it.
+    """
+    print("Loading %s..." % test_class.name)
+    test = test_class()
+    if SERVER:
+        while True:
+            test.Step(test.settings)
+    if fwSettings.onlyInit:
+        return
+    test.run()
 
 
 if __name__ == "__main__":

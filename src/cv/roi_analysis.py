@@ -5,6 +5,9 @@ from shapely import geometry
 
 class RoiAnalysis():
 
+    def __init__(self, server):
+        self.server = server
+
     def point_orientation(self, vec_point_1, vec_point_2, point):
         '''
         :param vec_point_1: начальная точка вектора

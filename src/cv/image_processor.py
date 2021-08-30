@@ -22,7 +22,7 @@ class ImageProcessor(Separator, RoiAnalysis):
         self.ALPHA = 180 / np.arccos(-1)
         self.my_world = world
         self.img = filename
-        self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
+        #self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         self.arm_size = arm_size
         self.pi_alpha = np.pi / 180
         self.hand_polygon = np.array([[12,  0],
