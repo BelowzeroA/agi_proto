@@ -353,5 +353,4 @@ class ImageProcessor(RoiAnalysis):
                 obj['offset'] = (0, 0)
         cv.waitKey(0)
         cv.destroyAllWindows()
-        print([obj['center'] for obj in data])
         return data
