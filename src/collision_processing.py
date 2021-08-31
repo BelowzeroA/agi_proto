@@ -19,17 +19,21 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import os
+from argparse import ArgumentParser
 
 import pygame
 import numpy as np
 import Box2D
-from Box2D.examples.framework import Framework, main, Keys
+from Box2D.examples.framework import Framework, Keys
 from Box2D import (b2CircleShape, b2FixtureDef, b2PolygonShape, b2LoopShape,
                    b2Random, b2Vec2, b2_dynamicBody, b2Color)
+from Box2D.examples.settings import fwSettings
 from pygame.locals import (QUIT, KEYDOWN)
 from cv.image_processor import ImageProcessor
 from agent import Agent
 from utils import path_from_root
+
+from agent_hand import AgentHand
 
 
 HZ = 34
@@ -60,6 +64,14 @@ def our_zoom(vertices):
     x = vertices[0]
     y = vertices[1]
     return x * 10 + 320, (20 - y) * 10 + 240
+
+def parse_arguments():
+    parser = ArgumentParser(__doc__)
+    parser.add_argument("--server", "-s", help="run without pygame?", default=False)
+    return parser.parse_args()
+
+args = parse_arguments()
+SERVER = args.server
 
 
 class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
@@ -94,10 +106,6 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
                         temp.append((p[0] - 3, p[1] - 4))
             pygame.draw.polygon(self.surface, color, temp, 0)
 
-            # print(our_zoom(self.test.world.bodies[5].worldCenter))
-            # print(center_of_mass(vertices))
-            # pygame.draw.polygon(self.surface, b2Color(0.9, 0.7, 0.7), vertices, 1)
-
     def DrawSolidCircle(self, center, radius, axis, color):
         """
         Draw a solid circle given the center, radius, axis of orientation and
@@ -106,7 +114,6 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
         for ind in range(len(self.test.world.bodies)):
             u = our_zoom(self.test.world.bodies[ind].worldCenter)
             if self.EPS > abs(u[0] - center[0]) and self.EPS > abs(u[0] - center[0]):
-                cur_ind = ind
                 color = self.test.our_color[ind]
 
         radius *= self.zoom
@@ -119,30 +126,32 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
                            center, radius - 3, 0)
 
 
-class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFramework):
+class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
+                            else Box2D.examples.backends.pygame_framework.PygameFramework):
 
     def __init__(self):
         super().__init__()
-        self.renderer = CustomDraw(surface=self.screen, test=self)
+        if not SERVER:
+            self.renderer = CustomDraw(surface=self.screen, test=self)
+            self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
+            self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
+            self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
+            self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
+                                                                       self.hand_close.get_height() // 20))
+            self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
+            self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
+                                                                     self.hand_push.get_height() // 25))
+            self.hand_push_r = self.hand_push
+            self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
+            self.hand_rect = self.hand.get_rect(topleft=(410, 350))
+            # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
+            # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
+            self.f_sys = pygame.font.SysFont('arial', 12)
         self.world.renderer = self.renderer
-        self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
-        self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
-        self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
-        self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
-                                                                   self.hand_close.get_height() // 20))
-        self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
-        self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
-                                                                 self.hand_push.get_height() // 25))
-        self.hand_push_r = self.hand_push
-        self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
-        self.hand_rect = self.hand.get_rect(topleft=(410, 350))
-        # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
-        # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
         self.min_ind = None
         self.push = None
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
-        self.f_sys = pygame.font.SysFont('arial', 12)
         self.attention = None
 
     def push_near_object(self, val=15):
@@ -163,13 +172,13 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         Check for pygame events (mainly keyboard/mouse events).
         Passes the events onto the GUI also.
         """
-        right = 0
-        up = 0
-        rotation = 0
-
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYDOWN and event.key == Keys.K_ESCAPE):
                 return False
+
+        right = 0
+        up = 0
+        rotation = 0
 
         bt = pygame.key.get_pressed()
         if bt[pygame.K_f]:
@@ -285,10 +294,8 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
     def run(self):
         """
         Main loop.
-
         Continues to run while checkEvents indicates the user has
         requested to quit.
-
         Updates the screen and tells the GUI to paint itself.
         """
         # If any of the test constructors update the settings, reflect
@@ -335,16 +342,25 @@ class CustomPygameFramework(Box2D.examples.backends.pygame_framework.PygameFrame
         self.world.renderer = None
 
 
-class CollisionProcessing(CustomPygameFramework):
+class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
+                          else CustomPygameFramework):
+    arm_step = {'right': 0, 'up': 0}
+    # settings = sfwSettings
+    if SERVER:
+        agent_hand = AgentHand()
+        agent_hand += (9.1, 6)
     num_step = 0
     last_step = None
-    name = "CollisionProcessing"
-    description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
                                                                           'y': -1}}
+
+    name = "CollisionProcessing"
+    description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
     y_offset = 10
     grab = False
+    min_ind = False
+    push = False
     ground_vertices = [(-32, 38), (-32, 0), (32, 0), (32, 38)]
     our_color = [
         (255, 0, 0),
@@ -399,8 +415,67 @@ class CollisionProcessing(CustomPygameFramework):
         )
         triangle_left.My_color = (1, 1, 1)
 
-    def Keyboard(self, key):
-        pass
+    def Keyboard(self):
+        right = 0
+        up = 0
+        rotation = 0
+
+        if False:
+            if self.push:
+                self.push = False
+                self.hand_rect = self.hand.get_rect(center=self.hand_rect.center)
+            else:
+                self.push = 1
+                self.hand_rect = self.hand_push.get_rect(center=self.hand_rect.center)
+
+        if False:
+            if self.min_ind:
+                self.world.bodies[self.min_ind].gravityScale = 1.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+                self.min_ind = None
+
+        if agent.actions['move_left']:
+            k = 1 if agent.actions['move_left'] == 2 else 0.5
+            right -= 10 * k
+            if not self.agent_hand.left < -31.9:
+                self.agent_hand -= (0.5 * k, 0)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[0] -= 0.5 * k
+                elif self.push:
+                    self.hand_push = self.hand_push_l
+                    self.push_near_object(val=25)
+
+        if agent.actions['move_right']:
+            k = 1 if agent.actions['move_right'] == 2 else 0.5
+            right += 10 * k
+            if not self.agent_hand.right > 31.9:
+                self.agent_hand += (0.5 * k, 0)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[0] += 0.5 * k
+                elif self.push:
+                    self.hand_push = self.hand_push_r
+                    self.push_near_object(val=25)
+
+        if agent.actions['move_up']:
+            k = 1 if agent.actions['move_up'] == 2 else 0.5
+            up += 10 * k
+            if not self.agent_hand.top > 16:
+                self.agent_hand += (0, 0.5 * k)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[1] += 0.5 * k
+
+        if agent.actions['move_down']:
+            k = 1 if agent.actions['move_down'] == 2 else 0.5
+            up -= 10 * k
+            if not self.agent_hand.bottom < 0.1:
+                self.agent_hand -= (0, 0.5 * k)
+            if self.min_ind:
+                self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
+
+        self.arm_step['right'] = right
+        self.arm_step['up'] = up
+        return True
 
     def get_imag(self, pixel_array):
         buffer = pygame.PixelArray(pixel_array)
@@ -424,18 +499,47 @@ class CollisionProcessing(CustomPygameFramework):
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
 
-        if np.all(self.pixel_array != None):
-            img_processor = ImageProcessor(self.world, self.pixel_array, arm_size=(
-                                                                    self.hand_rect.topleft[0],
-                                                                    self.hand_rect.topleft[1],
-                                                                    self.hand_rect.size[0],
-                                                                    self.hand_rect.size[1]))
+        if (not SERVER) and np.all(self.pixel_array != None):
+            img_processor = ImageProcessor(self.world, SERVER, self.pixel_array, arm_size=(
+                self.hand_rect.topleft[0],
+                self.hand_rect.topleft[1],
+                self.hand_rect.size[0],
+                self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
             self.agent_message = agent.env_step(self.cur_step)
+
+        elif SERVER:
+            img_processor = ImageProcessor(self.world,
+                                           SERVER,
+                                           arm_size=(
+                                               self.agent_hand.left,
+                                               self.agent_hand.top,
+                                               self.agent_hand.right - self.agent_hand.left,
+                                               self.agent_hand.top - self.agent_hand.bottom),
+                                           arm=self.agent_hand.hand_contour)
+            self.cur_step = img_processor.run(self.last_step)
+            self.last_step = [obj['center'] for obj in self.cur_step]
+            self.agent_message = agent.env_step(self.cur_step)
+            self.Keyboard()
+
         self.num_step += 1
 
         super(CollisionProcessing, self).Step(settings)
+
+
+def main(test_class):
+    """
+    Loads the test class and executes it.
+    """
+    print("Loading %s..." % test_class.name)
+    test = test_class()
+    if SERVER:
+        while True:
+            test.Step(test.settings)
+    if fwSettings.onlyInit:
+        return
+    test.run()
 
 
 
