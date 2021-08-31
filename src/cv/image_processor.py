@@ -4,8 +4,8 @@ import cv2 as cv
 import numpy as np
 from sympy import Segment, Point, N
 import Box2D
+import shapely
 
-from .separator import Separator
 from .roi_analysis import RoiAnalysis
 
 ALPHA_LIST = [22.5 + a for a in [0, 45, 90, 135, 180, 225, 270, 315]]
@@ -17,7 +17,7 @@ def our_zoom(vertices):
     return round(x * 10) + 320, round((20 - y) * 10) + 240
 
 
-class ImageProcessor(Separator, RoiAnalysis):
+class ImageProcessor(RoiAnalysis):
     def __init__(self,
                  world,
                  server=False,
@@ -48,6 +48,11 @@ class ImageProcessor(Separator, RoiAnalysis):
 
     def mean(self, lst: list) -> float:
         return sum(lst) / len(lst)
+
+    def distance(self, p1, p2):
+        p1 = np.array(p1)
+        p2 = np.array(p2)
+        return np.sqrt(np.sum((p2 - p1) ** 2))
 
     def get_side(self, p1, p2, p3):
         return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
@@ -179,36 +184,18 @@ class ImageProcessor(Separator, RoiAnalysis):
         roi_centers.extend(points)
         return roi_centers
 
-    def split_shapes(self, approx_contour, img):
-        all_shapes = []
-        approx_contour = [point for point in approx_contour if not (point[0] == 0 and point[1] == 440)
-                          and not (point[0] == 639 and point[1] == 440)
-                          ]
-        quantity_points = len(approx_contour[:-1])
-        for ind in range(len(approx_contour[:-1])):
-            p1 = approx_contour[ind]
-            p2 = approx_contour[(ind + 1) % quantity_points]
-            p3 = approx_contour[(ind + 2) % quantity_points]
-            triple_res = self.is_three_points_belong_to_the_same_shape(p1, p2, p3, img)
-            if np.any(triple_res != False):
-                ind_color = self.does_current_shapes_contains_this_color(all_shapes, triple_res)
-                if ind_color != -1:
-                    for point in (p1, p2, p3):
-                        if list(point) not in [list(i) for i in all_shapes[ind_color]['points']]:
-                            all_shapes[ind_color]['points'].append(point)
-                else:
-                    temp_dict = {}
-                    temp_dict['color'] = triple_res
-                    temp_dict['points'] = [p1, p2, p3]
-                    all_shapes.append(temp_dict)
-        return all_shapes
-
-    def is_it_in_arm_size(self, obj_points):
-        point_max = np.max(obj_points, axis=0)
-        point_min = np.min(obj_points, axis=0)
-        return (self.arm_size[0] <= point_min[0] and self.arm_size[1] <= point_min[1] and
-            point_max[0] <= self.arm_size[0] + self.arm_size[2] and
-            point_max[1] <= self.arm_size[1] + self.arm_size[3])
+    def is_point_inside_polygon(self, list_of_obj_points, points):
+        """
+        :param list_of_obj_points: список точек полигона
+        :param point: точка на плоскости
+        :return: bool, содержится ли точка в полигоне
+        """
+        polygon = shapely.geometry.polygon.Polygon(list_of_obj_points)
+        for point in points:
+            point = shapely.geometry.Point(point)
+            if polygon.contains(point):
+                return True
+        return False
 
     def general_presentation(self, vec, point_min, point_max, threshold=0.35):
         threshold = threshold * self.distance(point_min, point_max)
@@ -275,7 +262,7 @@ class ImageProcessor(Separator, RoiAnalysis):
         else:
             return approx_contour
 
-    def obj_func(self, data, approx_contour):
+    def obj_func(self, data, approx_contour, arm, flag=True):
         if len(approx_contour) == 0:
             return
         obj_data = {}
@@ -318,6 +305,11 @@ class ImageProcessor(Separator, RoiAnalysis):
                                       point_max),
             dist,
             self.img)
+        if flag:
+            if self.is_point_inside_polygon(approx_contour, arm):
+                obj_data['overlay'] = True
+            else:
+                obj_data['overlay'] = False
         data.append(obj_data)
 
     def run(self, last_position=None):
@@ -339,21 +331,19 @@ class ImageProcessor(Separator, RoiAnalysis):
                 else:
                     continue
                 approx_contour = [our_zoom(p) for p in approx_contour]
-                line = self.separate_hand_obj(approx_contour, arm)
-                if len(line) == 2:
-                    temp_data = []
-                    for approx_contour in line[0]:
-                        approx_contour = self.obj_filter(approx_contour)
-                        if approx_contour:
-                            self.obj_func(temp_data, approx_contour)
-                    temp_obj = temp_data[0]
-                    for temp in temp_data[1:]:
-                        temp_obj['rois'].extend(temp['rois'])
-                    data.append(temp_obj)
-                else:
-                    for approx_contour in line:
-                        self.obj_func(data, approx_contour)
-        self.obj_func(data, arm)
+#                line = self.separate_hand_obj(approx_contour, arm)
+#
+                temp_data = []
+#                for approx_contour in line[0]:
+#                approx_contour = self.obj_filter(approx_contour)
+                if approx_contour:
+                    self.obj_func(temp_data, approx_contour, arm, True)
+                temp_obj = temp_data[0]
+                for temp in temp_data[1:]:
+                    temp_obj['rois'].extend(temp['rois'])
+                data.append(temp_obj)
+        self.obj_func(data, arm, arm, False)
+        data[-1]['overlay'] = 'hand'
         if last_position:
             for obj, last_center in zip(data, last_position):
                 obj['offset'] = (obj['center'][0] - last_center[0],

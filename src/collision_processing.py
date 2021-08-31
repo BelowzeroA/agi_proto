@@ -147,8 +147,6 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
             # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
             self.f_sys = pygame.font.SysFont('arial', 12)
-        else:
-            self.agent_hand = AgentHand()
         self.world.renderer = self.renderer
         self.min_ind = None
         self.push = None
@@ -352,6 +350,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
     # settings = sfwSettings
     if SERVER:
         agent_hand = AgentHand()
+        agent_hand += (9.1, 6)
     num_step = 0
     last_step = None
     agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
