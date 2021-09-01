@@ -231,7 +231,7 @@ class ImageProcessor(RoiAnalysis):
 
     def get_approx_for_circle(self, world_body):
         center = world_body.worldCenter
-        radius = world_body.fixtures[0].shape.radius - 3
+        radius = world_body.fixtures[0].shape.radius - 0.3
         return [(radius * np.cos(self.pi_alpha * alp) + center[0],
                  radius * np.sin(self.pi_alpha * alp) + center[1]) for alp in ALPHA_LIST]
 
@@ -317,7 +317,7 @@ class ImageProcessor(RoiAnalysis):
         if self.server:
             arm = self.agent_hand
         else:
-            arm = self.hand_polygon + np.array([self.arm_size[0] + 1, self.arm_size[1]])
+            arm = self.hand_polygon + np.array([self.arm_size[0], self.arm_size[1]])
         if len(self.my_world.bodies) != 0:
             for world_body in self.my_world.bodies:
                 if len(world_body.fixtures) == 0:
@@ -343,6 +343,7 @@ class ImageProcessor(RoiAnalysis):
                     temp_obj['rois'].extend(temp['rois'])
                 data.append(temp_obj)
         self.obj_func(data, arm, arm, False)
+        #cv.imshow('img', self.img)
         data[-1]['overlay'] = 'hand'
         if last_position:
             for obj, last_center in zip(data, last_position):

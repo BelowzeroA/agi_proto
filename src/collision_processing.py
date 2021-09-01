@@ -145,7 +145,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             self.hand_push_l = pygame.transform.flip(self.hand_push, 1, 0)
             self.hand_rect = self.hand.get_rect(topleft=(410, 350))
             # self.hand_rect = self.hand.get_rect(topleft=(410, 403))
-            # self.hand_rect = self.hand.get_rect(topleft=(415, 415))
+            #self.hand_rect = self.hand.get_rect(topleft=(389, 410))
             self.f_sys = pygame.font.SysFont('arial', 12)
         self.world.renderer = self.renderer
         self.min_ind = None
