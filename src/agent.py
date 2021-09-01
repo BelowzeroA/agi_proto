@@ -38,6 +38,7 @@ class Agent:
         self.moving_body_start_tick = 0
         self.moving_body = None
         self.last_attended_body = None
+        self.body_cache = {}
 
     def _build_network(self):
         self.visual_recognition = VisualRecognitionZone.add(name='VR', agent=self)
@@ -101,13 +102,11 @@ class Agent:
         body_data = data[self.focused_body_idx]
 
         prev_body_data = None
-        self._serial_activate_on_body(body_data, prev_body_data)
+        self._serial_activate_on_body(body_data, prev_body_data, data)
 
     def _get_distance(self, x, y, body_data):
-        dx = x - body_data['center'][0]
-        dy = y - body_data['center'][1]
-        dx = dx if dx > 0 else -dx
-        dy = dy if dy > 0 else -dy
+        dx = abs(x - body_data['center'][0])
+        dy = abs(y - body_data['center'][1])
         return dx + dy
 
     def find_body_from_attention_spot(self, data):
@@ -136,28 +135,36 @@ class Agent:
 
     def get_moving_body(self, data):
         for body_data in data:
-            if body_data['offset'][0] != 0 or body_data['offset'][1]:
+            if body_data['offset'][0] != 0 or body_data['offset'][1] and body_data['name'] == 'hand':
                 return body_data
         return None
+
+    def _cache_bodies(self, data):
+        for body_data in data:
+            body_name = body_data['name']
+            self.body_cache[body_name] = body_data['general_presentation']
 
     def focus_strategy(self, data):
         if len(data) == 0 or len(data) > 3:
             return
 
+        if not self.body_cache:
+            self._cache_bodies(data)
+
         current_tick = self.network.current_tick
 
-        if self.moving_body_start_tick == current_tick - 1:
+        if self.moving_body_start_tick == current_tick - HyperParameters.network_steps_per_env_step:
             attended_body = self.last_attended_body
         else:
             attended_body = self.find_body_from_attention_spot(data)
 
         moving_body = self.get_moving_body(data)
         if moving_body is None:
-            self._serial_activate_on_body(attended_body)
+            self._serial_activate_on_body(attended_body, None, data)
             return
 
         prev_attended_body = attended_body
-        if current_tick - self.moving_body_start_tick > 3:
+        if current_tick - self.moving_body_start_tick > 3 * HyperParameters.network_steps_per_env_step:
             if moving_body == attended_body:
                 attempted_body = self.find_nearest_neighbor(data, attended_body)
                 if attempted_body:
@@ -170,7 +177,11 @@ class Agent:
             prev_attended_body = None
 
         self.last_attended_body = attended_body
-        self._serial_activate_on_body(attended_body, prev_attended_body)
+        body_name = attended_body['name']
+        if body_name in self.body_cache:
+            attended_body['general_presentation'] = self.body_cache[body_name]
+
+        self._serial_activate_on_body(attended_body, prev_attended_body, data)
 
     def activate_receptive_areas(self, data):
         current_tick = self.network.current_tick
@@ -189,14 +200,14 @@ class Agent:
         else:
             return self.focused_body_idx - 1
 
-    def _serial_activate_on_body(self, body_data, prev_body_data=None):
-        self.visual_recognition.activate_on_body(body_data, prev_body_data)
+    def _serial_activate_on_body(self, body_data, prev_body_data=None, data=None):
+        self.visual_recognition.activate_on_body(body_data, prev_body_data, data)
         self.visual_attention.activate_on_body(body_data)
 
-        self.surprise = 0
-
         self.network.verbose = False
-        self.network.step()
+        for i in range(HyperParameters.network_steps_per_env_step):
+            self.surprise = 0
+            self.network.step()
 
     def env_step(self, data):
         self.actions = {a: 0 for a in ACTIONS}
@@ -207,8 +218,11 @@ class Agent:
         if self.attention_spot:
             attention_x = int(self.attention_spot['attention-horizontal'] * ROOM_WIDTH)
             attention_y = int(self.attention_spot['attention-vertical'] * ROOM_HEIGHT)
+        if self.last_attended_body:
+            attention_x = self.last_attended_body['center'][0]
+            attention_y = self.last_attended_body['center'][1]
         return {
-            'current_tick': self.network.current_tick,
+            'current_tick': self.network.current_tick + 1,
             'surprise': self.surprise,
             'actions': self.actions,
             'attention-spot': {'x': attention_x, 'y': attention_y}

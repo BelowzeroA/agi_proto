@@ -2,12 +2,13 @@ import random
 from typing import List, Union, Dict
 
 from neuro.areas.action_area import ActionArea
+from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 from neuro.patterns_connection import PatternsConnection
 from neuro.sdr_processor import SDRProcessor
 
-ACTION_LONGEVITY = 8
+ACTION_LONGEVITY = 8 * HyperParameters.network_steps_per_env_step
 
 
 class ReflexArea(NeuralArea):
@@ -30,12 +31,22 @@ class ReflexArea(NeuralArea):
         self.connections: List[PatternsConnection] = []
         self.active_pattern = None
         self.history = {}
+        self.move_state = {}
+        self.move_return = None
+        self.move_id = 1
+        self.caller_id = 0
 
     def get_connection_from(self, input_pattern: NeuralPattern):
+        candidates = []
         for connection in self.connections:
             if connection.source == input_pattern:
-                return connection
-        return None
+                candidates.append((connection, connection.weight))
+        if len(candidates) == 0:
+            return None
+        if len(candidates) == 1:
+            return candidates[0][0]
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[0][0]
 
     def find_pattern(self, input_pattern: NeuralPattern):
         for p in self.input_patterns:
@@ -44,34 +55,47 @@ class ReflexArea(NeuralArea):
         return None
 
     def predefined_motion(self):
+        self.move_return = None
+        self.caller_id = 0
+        self.make_move(ticks=16, left=2)
+        self.make_move(ticks=10, down=2)
+        self.make_move(ticks=35, right=1)
+        self.make_move(ticks=10, left=2, up=2)
+        self.make_move(ticks=11, right=2, down=2)
+        self.make_move(ticks=10, left=1, up=2)
+        self.make_move(ticks=5, right=2)
+        self.make_move(ticks=10, down=2)
+        self.make_move(ticks=10, up=2)
+        return self.move_return
+
+    def make_move(self, ticks, left=0, right=0, up=0, down=0):
+        self.caller_id += 1
+        if self.move_return:
+            return
+        if self.move_id != self.caller_id:
+            return
+
         current_tick = self.container.network.current_tick
-
-        if current_tick < 20:
-            return self.make_move(left=2)
-        elif current_tick < 30:
-            return self.make_move(down=2)
-        elif current_tick < 72:
-            return self.make_move(right=1)
-        elif current_tick < 78:
-            return self.make_move(left=2, up=2)
-        elif current_tick < 90:
-            return self.make_move(right=1, down=1)
-        elif current_tick < 96:
-            return self.make_move(left=2, up=2)
-        return None
-
-    def make_move(self, left=0, right=0, up=0, down=0):
         patterns = self.action_area.get_patterns()
-        if self.name == 'Reflex: move_left':
-            return patterns[left]
-        elif self.name == 'Reflex: move_right':
-            return patterns[right]
-        elif self.name == 'Reflex: move_up':
-            return patterns[up]
-        elif self.name == 'Reflex: move_down':
-            return patterns[down]
+        if self.move_id in self.move_state:
+            if current_tick - self.move_state[self.move_id] >= ticks * HyperParameters.network_steps_per_env_step:
+                self.move_return = None
+                self.move_id += 1
+                self.move_state[self.move_id] = current_tick
+                return
         else:
-            return patterns[0]
+            self.move_state[self.move_id] = current_tick
+
+        if self.name == 'Reflex: move_left':
+            self.move_return = patterns[left]
+        elif self.name == 'Reflex: move_right':
+            self.move_return = patterns[right]
+        elif self.name == 'Reflex: move_up':
+            self.move_return = patterns[up]
+        elif self.name == 'Reflex: move_down':
+            self.move_return = patterns[down]
+        else:
+            self.move_return = patterns[0]
 
     def update(self):
         current_tick = self.container.network.current_tick
@@ -82,6 +106,7 @@ class ReflexArea(NeuralArea):
             combined_pattern = SDRProcessor.make_combined_pattern(self.inputs, self.input_sizes)
 
         output = self.predefined_motion()
+        predefined_move_chosen = output is not None
 
         input_pattern = None
         if combined_pattern:
@@ -93,7 +118,7 @@ class ReflexArea(NeuralArea):
                 input_pattern = found_pattern
 
             connection = self.get_connection_from(input_pattern)
-            if connection:
+            if connection and not predefined_move_chosen:
                 output = connection.target
 
         if not output:
@@ -122,6 +147,7 @@ class ReflexArea(NeuralArea):
                             source=input_pattern,
                             target=combination[1]
                         )
+                        connection.weight = 1
                         connection.tick = causing_combination_tick
                         self.connections.append(connection)
 

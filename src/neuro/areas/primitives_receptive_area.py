@@ -30,6 +30,7 @@ class PrimitivesReceptiveArea(NeuralArea):
                 angle_category = self._categorize_angle(segment['angle'])
                 if angle_masses[angle_category] < 2:
                     angle_masses[angle_category] += segment['mass']
+                    angle_masses[angle_category] = min(2, angle_masses[angle_category])
 
             for angle_idx, angle_category in enumerate(angle_masses):
                 index = i * quadrant_index_space + (angle_idx * 3) + angle_category
@@ -50,6 +51,6 @@ class PrimitivesReceptiveArea(NeuralArea):
 
     def activate_on_body(self, data, name):
         neural_indices = self.encode(data)
-        pattern = NeuralPattern(space_size=NEURAL_SPACE_SIZE, value=neural_indices)
+        pattern = NeuralPattern.find_or_create(space_size=NEURAL_SPACE_SIZE, value=neural_indices)
         pattern.data = {self.name: name}
         self.output = pattern

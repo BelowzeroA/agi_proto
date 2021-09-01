@@ -7,3 +7,4 @@ class HyperParameters:
     space_encoder_space_size = 100
     space_encoder_norm = 20
     encoder_norm = 20
+    network_steps_per_env_step = 2

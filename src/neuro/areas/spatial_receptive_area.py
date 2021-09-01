@@ -4,8 +4,6 @@ from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 
-NEURAL_SPACE_SIZE = 64
-
 
 class SpatialReceptiveArea(NeuralArea):
 
@@ -69,7 +67,7 @@ class SpatialReceptiveArea(NeuralArea):
     def activate_on_body(self, data):
         neural_indices = self.encode(data)
         if neural_indices:
-            pattern = NeuralPattern(
+            pattern = NeuralPattern.find_or_create(
                 space_size=self.output_space_size,
                 value=neural_indices,
                 data={self.name: data})

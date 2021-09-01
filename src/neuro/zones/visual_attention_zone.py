@@ -38,6 +38,7 @@ class VisualAttentionZone(NeuralZone):
             surprise_level=0,
             recognition_threshold=0.99
         )
+        self.attention_location.convey_new_pattern = True
 
         self.container.add_connection(source=self.attention_location_horizontal, target=self.attention_location)
         self.container.add_connection(source=self.attention_location_vertical, target=self.attention_location)

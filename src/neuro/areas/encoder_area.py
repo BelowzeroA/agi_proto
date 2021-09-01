@@ -19,6 +19,7 @@ class EncoderArea(NeuralArea):
             min_inputs: int = 1,
             surprise_level: int = 1,
             recognition_threshold=None,
+            convey_new_pattern=False,
     ):
         super().__init__(name=name, agent=agent, zone=zone)
         self.output_space_size = output_space_size
@@ -29,7 +30,9 @@ class EncoderArea(NeuralArea):
         self.highway_connections = set()
         self.connections = []
         self.pattern_connections = []
+        self.history = {}
         self.surprise_level = surprise_level
+        self.convey_new_pattern = convey_new_pattern
         self.recognition_threshold = recognition_threshold or HyperParameters.pattern_recognition_threshold
 
     def update(self):
@@ -46,6 +49,9 @@ class EncoderArea(NeuralArea):
             self.process_input(combined_pattern)
         else:
             self.output = None
+
+        self.history[self.agent.network.current_tick] = self.output
+
         self.reset_inputs()
 
         super().update()
@@ -55,7 +61,8 @@ class EncoderArea(NeuralArea):
 
     def recognize_output_pattern(self, input_pattern: NeuralPattern):
         for connection in self.pattern_connections:
-            if connection.source.similarity(input_pattern) >= self.recognition_threshold:
+            similarity = connection.source.similarity(input_pattern)
+            if similarity >= self.recognition_threshold:
                 return connection.target
         return None
 
@@ -73,8 +80,7 @@ class EncoderArea(NeuralArea):
             if self.container.network.verbose:
                 print(f'[{self.name}]: New pattern has been created {output_pattern}')
             if self.surprise_level > 0:
-                agent = self.container.network.agent
-                agent.on_message({
+                self.agent.on_message({
                     'message': 'pattern_created',
                     'surprise_level': self.surprise_level,
                     'area': self,
@@ -99,6 +105,8 @@ class EncoderArea(NeuralArea):
                     'area': self,
                     'pattern': output_pattern
                 })
+            if self.convey_new_pattern:
+                self.output = output_pattern
         else:
             self.output = output_pattern
             if self.container.network.verbose:
@@ -117,6 +125,7 @@ class EncoderArea(NeuralArea):
             source=pattern,
             target=output_pattern
         )
+        connection.tick = self.agent.network.current_tick
         self.pattern_connections.append(connection)
 
         return output_pattern, True

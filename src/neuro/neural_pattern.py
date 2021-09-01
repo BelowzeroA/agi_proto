@@ -22,6 +22,17 @@ class NeuralPattern:
         GLOBAL_COUNTER += 1
         all_patterns.append(self)
 
+    @classmethod
+    def find_or_create(cls, space_size: int, value_size: int = 0, value=None, data=None):
+        global all_patterns
+
+        if value:
+            for pattern in all_patterns:
+                intersection = set(value) & set(pattern.value)
+                if len(intersection) == len(value):
+                    return pattern
+        return cls(space_size=space_size, value_size=value_size, value=value, data=data)
+
     def __eq__(self, other):
         if self.value_size != other.value_size or self.space_size != other.space_size:
             return False

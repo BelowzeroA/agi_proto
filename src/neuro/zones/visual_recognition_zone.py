@@ -1,3 +1,6 @@
+import math
+
+from neuro.areas.body_shape_distortion_area import BodyShapeDistortionArea
 from neuro.areas.encoder_area import EncoderArea
 from neuro.areas.primitives_receptive_area import PrimitivesReceptiveArea
 from neuro.areas.spatial_receptive_area import SpatialReceptiveArea
@@ -34,6 +37,7 @@ class VisualRecognitionZone(NeuralZone):
             output_space_size=HyperParameters.encoder_space_size,
             output_norm=HyperParameters.encoder_norm,
             surprise_level=2,
+            recognition_threshold=0.9
         )
 
         place_presentation_area = EncoderArea.add(
@@ -44,6 +48,7 @@ class VisualRecognitionZone(NeuralZone):
             output_norm=HyperParameters.encoder_norm,
             min_inputs=2,
             surprise_level=0,
+            convey_new_pattern=True,
         )
 
         self._shape_shift_area = EncoderArea.add(
@@ -53,7 +58,9 @@ class VisualRecognitionZone(NeuralZone):
             output_space_size=HyperParameters.encoder_space_size,
             output_norm=HyperParameters.encoder_norm,
             min_inputs=2,
-            surprise_level=0
+            surprise_level=0,
+            recognition_threshold=0.9,
+            convey_new_pattern=True,
         )
 
         self.container.add_connection(
@@ -87,9 +94,31 @@ class VisualRecognitionZone(NeuralZone):
             target=self.shape_shift_area
         )
 
-    def activate_on_body(self, body_data, prev_body_data):
+        self.body_distortion = BodyShapeDistortionArea.add(name='distortion', agent=self.agent, zone=self)
+
+    def activate_on_body(self, body_data, prev_body_data, data):
+        body_shape_distorted = self._body_shape_distorted(data)
+        # body_shape_distorted = body_data['overlay'] == True or (prev_body_data and prev_body_data['overlay'] == True)
+        self.body_distortion.activate_on_body(body_shape_distorted)
+
         self._activate_eye_shift_areas(body_data, prev_body_data)
         self.primitives_receptive_area.activate_on_body(body_data['general_presentation'], body_data['name'])
+
+    def _body_shape_distorted(self, data):
+        threshold = 30
+        there_is_circle = False
+        hand_data = [d for d in data if d['name'] == 'hand'][0]
+        for body_data in data:
+            if body_data['name'] == 'circle':
+                there_is_circle = True
+            if body_data['name'] != 'hand':
+                shift_x = abs(hand_data['center'][0] - body_data['center'][0])
+                shift_y = abs(hand_data['center'][1] - body_data['center'][1])
+                if math.sqrt(shift_x ** 2 + shift_y ** 2) <= threshold:
+                    return True
+        if not there_is_circle:
+            return True
+        return False
 
     def _activate_eye_shift_areas(self, body_data, prev_body_data):
         from agent import ROOM_WIDTH, ROOM_HEIGHT
