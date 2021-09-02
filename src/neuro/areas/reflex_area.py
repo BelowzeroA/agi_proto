@@ -74,13 +74,13 @@ class ReflexArea(NeuralArea):
         self.make_move(ticks=35, right=1)
         self.make_move(ticks=10, left=2, up=2)
         self.make_move(ticks=11, right=2, down=2)
-        self.make_move(ticks=10, left=1, up=2)
-        self.make_move(ticks=5, right=2)
+        self.make_move(ticks=10, left=1, up=2, grab=1)
+        self.make_move(ticks=5, right=2, grab=0)
         self.make_move(ticks=10, down=2)
         self.make_move(ticks=10, up=2)
         return self.move_return
 
-    def make_move(self, ticks, left=0, right=0, up=0, down=0):
+    def make_move(self, ticks, left=0, right=0, up=0, down=0, grab=0):
         self.caller_id += 1
         if self.move_return:
             return
@@ -106,6 +106,8 @@ class ReflexArea(NeuralArea):
             self.move_return = patterns[up]
         elif self.name == 'Reflex: move_down':
             self.move_return = patterns[down]
+        elif self.name == 'Reflex: grab':
+            self.move_return = patterns[grab]
         else:
             self.move_return = patterns[0]
 
@@ -118,6 +120,7 @@ class ReflexArea(NeuralArea):
             combined_pattern = SDRProcessor.make_combined_pattern(self.inputs, self.input_sizes)
 
         output = self.predefined_motion()
+        # output = None
         predefined_move_chosen = output is not None
 
         input_pattern = None
@@ -161,6 +164,19 @@ class ReflexArea(NeuralArea):
 
         connection = self.get_connection_from_to(source=input_pattern, target=combination[1])
         if not connection:
+
+            input_data = input_pattern.data
+            action_value = combination[1]
+            if action_value.data > 0:
+                if self.name == 'Reflex: move_left' and \
+                    'shift-right' in input_data and \
+                    input_data['shift-right'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
+                    print('aaaaaa')
+                if self.name == 'Reflex: move_right' and \
+                    'shift-left' in input_data and \
+                    input_data['shift-left'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
+                    print('aaaaaa')
+
             connection = PatternsConnection(
                 source=input_pattern,
                 target=combination[1],

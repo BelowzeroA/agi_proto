@@ -25,7 +25,7 @@ class SDRProcessor:
         #     self.area.patterns.append(output_pattern)
         #     self.area.highway_connections.update(connections)
         # return output_pattern, pattern_is_new
-        output_pattern = NeuralPattern(self.area.output_space_size, value=output)
+        output_pattern = NeuralPattern.find_or_create(self.area.output_space_size, value=output)
         # self.area.patterns.append(output_pattern)
         self.area.highway_connections.update(connections)
         return output_pattern
@@ -115,7 +115,7 @@ class SDRProcessor:
             shift += input_sizes[i]
 
         if len(combined_input_indices):
-            combined_pattern = NeuralPattern(
+            combined_pattern = NeuralPattern.find_or_create(
                 space_size=sum(input_sizes),
                 value=combined_input_indices,
                 data=combined_input_data

@@ -1,11 +1,6 @@
 import random
 
-from neuro.areas.action_area import ActionArea
-from neuro.areas.hand_motion_area import HandMotionArea
-from neuro.areas.primitives_receptive_area import PrimitivesReceptiveArea
-from neuro.areas.spatial_receptive_area import SpatialReceptiveArea
 from neuro.container import Container
-from neuro.areas.encoder_area import EncoderArea
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
 from neuro.zones.motor_zone import MotorZone
@@ -15,6 +10,7 @@ from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
 ROOM_WIDTH = 640
 ROOM_HEIGHT = 480
+MAX_ATTENTION_DISTANCE = 200
 ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'grab']
 ATTENTION_SPAN = 5
 
@@ -78,31 +74,32 @@ class Agent:
         else:
             self.focused_body_idx += 1
 
-    def loop_strategy(self, data):
-        if len(data) == 0 or len(data) > 3:
+    def loop_strategy(self, packet):
+        body_data = packet['data']
+        if len(body_data) == 0 or len(body_data) > 3:
             return
 
         current_tick = self.network.current_tick
         if current_tick == 0:
-            self._switch_focus(data)
+            self._switch_focus(body_data)
         elif current_tick - self.last_attention_loop_switch_tick > ATTENTION_SPAN:
-            self._switch_focus(data)
+            self._switch_focus(body_data)
             self.last_attention_loop_switch_tick = current_tick
 
-        if self.focused_body_idx >= len(data):
-            self.focused_body_idx = len(data) - 1
+        if self.focused_body_idx >= len(body_data):
+            self.focused_body_idx = len(body_data) - 1
 
         if self.container.network.verbose:
             print(f'body #{self.focused_body_idx + 1}')
 
-        previous_focused_body_idx = self._get_previous_body_index(data)
+        previous_focused_body_idx = self._get_previous_body_index(body_data)
         prev_body_data = None
         if previous_focused_body_idx:
-            prev_body_data = data[previous_focused_body_idx]
-        body_data = data[self.focused_body_idx]
+            prev_body_data = body_data[previous_focused_body_idx]
+        curr_body_data = body_data[self.focused_body_idx]
 
         prev_body_data = None
-        self._serial_activate_on_body(body_data, prev_body_data, data)
+        self._serial_activate_on_body(curr_body_data, prev_body_data, body_data)
 
     def _get_distance(self, x, y, body_data):
         dx = abs(x - body_data['center'][0])
@@ -129,7 +126,7 @@ class Agent:
             distances.append((data[i], distance))
         distances.sort(key=lambda x: x[1])
         shortest_distance = distances[0][1]
-        if shortest_distance > 150:
+        if shortest_distance > MAX_ATTENTION_DISTANCE:
             return None
         return distances[0][0]
 
@@ -144,7 +141,8 @@ class Agent:
             body_name = body_data['name']
             self.body_cache[body_name] = body_data['general_presentation']
 
-    def focus_strategy(self, data):
+    def focus_strategy(self, packet):
+        data = packet['data']
         if len(data) == 0 or len(data) > 3:
             return
 
@@ -183,14 +181,14 @@ class Agent:
 
         self._serial_activate_on_body(attended_body, prev_attended_body, data)
 
-    def activate_receptive_areas(self, data):
+    def activate_receptive_areas(self, packet):
         current_tick = self.network.current_tick
         if current_tick - self.last_motion_tick > 7:
             self.attention_strategy = 'loop'
         if self.attention_strategy == 'loop':
-            self.loop_strategy(data)
+            self.loop_strategy(packet)
         else:
-            self.focus_strategy(data)
+            self.focus_strategy(packet)
 
     def _get_previous_body_index(self, data):
         if len(data) < 2:
@@ -209,9 +207,9 @@ class Agent:
             self.surprise = 0
             self.network.step()
 
-    def env_step(self, data):
+    def env_step(self, packet):
         self.actions = {a: 0 for a in ACTIONS}
-        self.activate_receptive_areas(data)
+        self.activate_receptive_areas(packet)
         if self.container.network.verbose:
             print(f'Surprise: {self.surprise}')
         attention_x, attention_y = -1, -1
@@ -221,6 +219,8 @@ class Agent:
         if self.last_attended_body:
             attention_x = self.last_attended_body['center'][0]
             attention_y = self.last_attended_body['center'][1]
+        # if self.network.current_tick > 150:
+        #     print(f'{self.network.current_tick}: grab={self.actions["grab"]}')
         return {
             'current_tick': self.network.current_tick + 1,
             'surprise': self.surprise,
