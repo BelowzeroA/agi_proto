@@ -149,6 +149,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             self.f_sys = pygame.font.SysFont('arial', 12)
         self.world.renderer = self.renderer
         self.min_ind = None
+        self.grab = False
         self.push = None
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
@@ -189,12 +190,12 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 self.push = 1
                 self.hand_rect = self.hand_push.get_rect(center=self.hand_rect.center)
 
-        if bt[pygame.K_e]:
-            if self.min_ind:
-                self.world.bodies[self.min_ind].gravityScale = 1.0
-                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
-                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
-                self.min_ind = None
+        # if bt[pygame.K_e]:
+        #     if self.min_ind:
+        #         self.world.bodies[self.min_ind].gravityScale = 1.0
+        #         self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+        #         self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+        #         self.min_ind = None
 
         if bt[pygame.K_a] or agent.actions['move_left']:
             k = 1 if agent.actions['move_left'] == 2 else 0.5
@@ -249,10 +250,16 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             if self.min_ind:
                 self.world.bodies[self.min_ind].angle += 0.5
 
-        if bt[pygame.K_q]:
-            if self.min_ind:
-                pass
+        if bt[pygame.K_q] or agent.actions['grab']:
+            if self.grab and self.min_ind:
+                self.world.bodies[self.min_ind].gravityScale = 1.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+                self.min_ind = None
+            elif self.grab and not self.min_ind:
+                self.grab = False
             else:
+                self.grab = True
                 list_ind = []
                 for ind in range(len(self.world.bodies)):
                     u = our_zoom(self.world.bodies[ind].worldCenter)
@@ -507,7 +514,14 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
                 self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
+            grab_dict = {}
+            if self.min_ind:
+                grab_dict['hold'] = True
+            else:
+                grab_dict['hold'] = False
+
             self.agent_message = agent.env_step(self.cur_step)
+
 
         elif SERVER:
             img_processor = ImageProcessor(self.world,
