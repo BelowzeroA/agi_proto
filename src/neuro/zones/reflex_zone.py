@@ -1,3 +1,4 @@
+from neuro.areas.dopamine_predictor_area import DopaminePredictorArea
 from neuro.areas.reflex_area import ReflexArea
 from neuro.neural_zone import NeuralZone
 from neuro.zones.motor_zone import MotorZone
@@ -17,11 +18,18 @@ class ReflexZone(NeuralZone):
         action_areas = self.motor_zone.get_areas()
         for action_area in action_areas:
 
+            dopamine_predictor = DopaminePredictorArea.add(
+                name=f'Dope predictor: {action_area.action_id}',
+                agent=self.agent,
+                zone=self,
+            )
+
             reflex_area = ReflexArea.add(
                 name=f'Reflex: {action_area.action_id}',
                 agent=self.agent,
                 zone=self,
                 action_area=action_area,
+                dopamine_predictor=dopamine_predictor,
             )
             self.container.add_connection(
                 source=reflex_area,

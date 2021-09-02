@@ -30,7 +30,7 @@ class BodyShapeDistortionArea(NeuralArea):
                 self.last_reset_tick = current_tick
             self.counter = 0
 
-        if self.counter == 1 and current_tick - self.last_reset_tick > 20:
+        if self.counter == 1 and current_tick - self.last_reset_tick > 10 * HyperParameters.network_steps_per_env_step:
             self.agent.on_message({
                 'message': 'pattern_created',
                 'surprise_level': 3,

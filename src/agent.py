@@ -15,7 +15,7 @@ from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
 ROOM_WIDTH = 640
 ROOM_HEIGHT = 480
-ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'mode']
+ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'grab']
 ATTENTION_SPAN = 5
 
 

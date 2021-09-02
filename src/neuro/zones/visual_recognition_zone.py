@@ -98,7 +98,7 @@ class VisualRecognitionZone(NeuralZone):
 
     def activate_on_body(self, body_data, prev_body_data, data):
         body_shape_distorted = self._body_shape_distorted(data)
-        # body_shape_distorted = body_data['overlay'] == True or (prev_body_data and prev_body_data['overlay'] == True)
+        body_shape_distorted = body_data['overlay'] == True or (prev_body_data and prev_body_data['overlay'] == True)
         self.body_distortion.activate_on_body(body_shape_distorted)
 
         self._activate_eye_shift_areas(body_data, prev_body_data)

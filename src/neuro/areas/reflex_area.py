@@ -2,6 +2,7 @@ import random
 from typing import List, Union, Dict
 
 from neuro.areas.action_area import ActionArea
+from neuro.areas.dopamine_predictor_area import DopaminePredictorArea
 from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
@@ -19,6 +20,7 @@ class ReflexArea(NeuralArea):
             agent,
             zone,
             action_area,
+            dopamine_predictor,
     ):
         super().__init__(
             name=name,
@@ -27,6 +29,7 @@ class ReflexArea(NeuralArea):
         )
         self.input_patterns = []
         self.action_area: ActionArea = action_area
+        self.dopamine_predictor: DopaminePredictorArea = dopamine_predictor
         self.pattern_start_tick = None
         self.connections: List[PatternsConnection] = []
         self.active_pattern = None
@@ -43,10 +46,19 @@ class ReflexArea(NeuralArea):
                 candidates.append((connection, connection.weight))
         if len(candidates) == 0:
             return None
-        if len(candidates) == 1:
-            return candidates[0][0]
-        candidates.sort(key=lambda x: x[1], reverse=True)
-        return candidates[0][0]
+
+        if len(candidates) > 1:
+            candidates.sort(key=lambda x: x[1], reverse=True)
+        top_connection = candidates[0][0]
+        if top_connection.weight < 0.15:
+            return None
+        return top_connection
+
+    def get_connection_from_to(self, source: NeuralPattern, target: NeuralPattern) -> PatternsConnection:
+        for connection in self.connections:
+            if connection.source == source and connection.target == target:
+                return connection
+        return None
 
     def find_pattern(self, input_pattern: NeuralPattern):
         for p in self.input_patterns:
@@ -117,11 +129,19 @@ class ReflexArea(NeuralArea):
             else:
                 input_pattern = found_pattern
 
-            connection = self.get_connection_from(input_pattern)
-            if connection and not predefined_move_chosen:
-                output = connection.target
+            if not predefined_move_chosen:
+                if self.active_pattern is None or current_tick - self.pattern_start_tick >= ACTION_LONGEVITY:
+                    connection = self.get_connection_from(input_pattern)
+                    if connection:
+                        self.dopamine_predictor.on_connection_activated(connection)
+                        self.pattern_start_tick = current_tick
+                        output = connection.target
+                        self.active_pattern = output
+                elif self.active_pattern:
+                    output = self.active_pattern
 
         if not output:
+            # Choosing a random action
             patterns = self.action_area.get_patterns()
             if self.pattern_start_tick is None or current_tick - self.pattern_start_tick > ACTION_LONGEVITY:
                 self.pattern_start_tick = current_tick
@@ -133,21 +153,36 @@ class ReflexArea(NeuralArea):
 
         self.output = output
 
+    def _process_input_output_combination(self, combination_tick: int, dope_value: int, processed_connections: set):
+        combination = self.history[combination_tick]
+        input_pattern = combination[0]
+        if not input_pattern:
+            return
+
+        connection = self.get_connection_from_to(source=input_pattern, target=combination[1])
+        if not connection:
+            connection = PatternsConnection(
+                source=input_pattern,
+                target=combination[1],
+                weight=0.5,
+                tick=combination_tick,
+                dope_value=dope_value
+            )
+            self.connections.append(connection)
+            processed_connections.add(connection)
+        else:
+            if connection not in processed_connections:
+                processed_connections.add(connection)
+                connection.update_weight(dope_value * HyperParameters.learning_rate)
+
     def receive_dope(self, dope_value: int):
         current_tick = self.container.network.current_tick
-        if dope_value > 1:
-            causing_combination_tick = current_tick - 2
+        if dope_value < 2:
+            return
+
+        processed_connections = set()
+        for causing_combination_tick in range(current_tick - 8, current_tick - 2):
             if causing_combination_tick in self.history:
-                combination = self.history[causing_combination_tick]
-                input_pattern = combination[0]
-                if input_pattern:
-                    connection = self.get_connection_from(input_pattern)
-                    if not connection:
-                        connection = PatternsConnection(
-                            source=input_pattern,
-                            target=combination[1]
-                        )
-                        connection.weight = 1
-                        connection.tick = causing_combination_tick
-                        self.connections.append(connection)
+                self._process_input_output_combination(causing_combination_tick, dope_value, processed_connections)
+
 
