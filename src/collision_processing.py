@@ -135,9 +135,10 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             self.renderer = CustomDraw(surface=self.screen, test=self)
             self.hand = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
             self.hand = pygame.transform.scale(self.hand, (self.hand.get_width() // 20, self.hand.get_height() // 20))
-            self.hand_close = pygame.image.load(path_from_root('pics/open.png')).convert_alpha()
+            self.hand_close = pygame.image.load(path_from_root('pics/close1.png')).convert_alpha()
             self.hand_close = pygame.transform.scale(self.hand_close, (self.hand_close.get_width() // 20,
                                                                        self.hand_close.get_height() // 20))
+            self.hand_close.set_colorkey((255, 255, 255))
             self.hand_push = pygame.image.load(path_from_root('pics/push.png')).convert_alpha()
             self.hand_push = pygame.transform.scale(self.hand_push, (self.hand_push.get_width() // 25,
                                                                      self.hand_push.get_height() // 25))
@@ -154,6 +155,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
         self.pixel_array = None
         self.arm_step = {'right': 0, 'up': 0}
         self.attention = None
+        self.pixel_array = None
 
     def push_near_object(self, val=15):
         for ind in range(len(self.world.bodies)):
@@ -256,9 +258,11 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
                 self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
                 self.min_ind = None
+                self.grab = False
             elif self.grab and not self.min_ind:
                 self.grab = False
             else:
+                #self.hand_rect = self.hand_close.get_rect(center=self.hand_rect.center)
                 self.grab = True
                 list_ind = []
                 for ind in range(len(self.world.bodies)):
@@ -276,7 +280,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                     self.world.bodies[self.min_ind].gravityScale = 0.0
                     self.world.bodies[self.min_ind].linearVelocity[0] = 0
                     self.world.bodies[self.min_ind].linearVelocity[1] = 0
-            self.hand_rect = self.hand_close.get_rect(center=self.hand_rect.center)
+
         self.arm_step['right'] = right
         self.arm_step['up'] = up
         return True
@@ -327,14 +331,15 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 self.gui_app.paint(self.screen)
 
             self.Print()
-            if self.min_ind:
+            if self.grab:
                 self.screen.blit(self.hand_close, self.hand_rect)
             elif self.push:
                 self.screen.blit(self.hand_push, self.hand_rect)
             else:
                 self.screen.blit(self.hand, self.hand_rect)
             attention_point = [-1, -1]
-            self.pixel_array = self.get_imag(pygame.display.get_surface())
+            #self.pixel_array = self.get_imag(pygame.display.get_surface())
+            self.pixel_array = self.screen
             if (self.agent_message and self.agent_message['attention-spot']['x'] != -1 and
                     self.agent_message['attention-spot']['y'] != -1):
                 attention_point[0] = self.agent_message['attention-spot']['x']
@@ -427,20 +432,33 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         up = 0
         rotation = 0
 
-        if False:
-            if self.push:
-                self.push = False
-                self.hand_rect = self.hand.get_rect(center=self.hand_rect.center)
-            else:
-                self.push = 1
-                self.hand_rect = self.hand_push.get_rect(center=self.hand_rect.center)
-
-        if False:
-            if self.min_ind:
+        if agent.actions['grab']:
+            if self.grab and self.min_ind:
                 self.world.bodies[self.min_ind].gravityScale = 1.0
                 self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
                 self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
                 self.min_ind = None
+                self.grab = False
+            elif self.grab and not self.min_ind:
+                self.grab = False
+            else:
+                self.grab = True
+                list_ind = []
+                for ind in range(len(self.world.bodies)):
+                    u = our_zoom(self.world.bodies[ind].worldCenter)
+                    dist = (abs(self.hand_rect.center[0] - u[0]) +
+                            abs(self.hand_rect.center[1] - u[1]))
+                    if dist < 20:
+                        list_ind.append((ind, dist))
+                if len(list_ind) > 0:
+                    self.min_ind = 0
+                    for ind in range(len(list_ind)):
+                        if list_ind[self.min_ind][1] > list_ind[ind][1]:
+                            self.min_ind = ind
+                    self.min_ind = list_ind[self.min_ind][0]
+                    self.world.bodies[self.min_ind].gravityScale = 0.0
+                    self.world.bodies[self.min_ind].linearVelocity[0] = 0
+                    self.world.bodies[self.min_ind].linearVelocity[1] = 0
 
         if agent.actions['move_left']:
             k = 1 if agent.actions['move_left'] == 2 else 0.5
@@ -499,6 +517,18 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         buffer = pygame.surfarray.array3d(pixel_array)
         return buffer
 
+    def viewing_the_status(self):
+        grab_dict = {'is_clenched': False,
+                     'is_holding': False}
+        if self.min_ind:
+            grab_dict['is_holding'] = True
+        if self.grab:
+            grab_dict['is_clenched'] = True
+        self.cur_step = {
+            'data': self.cur_step,
+            'mode': grab_dict
+        }
+
     def Step(self, settings):
         # We are going to destroy some bodies according to contact
         # points. We must buffer the bodies that should be destroyed
@@ -514,14 +544,8 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
                 self.hand_rect.size[1]))
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
-            grab_dict = {}
-            if self.min_ind:
-                grab_dict['hold'] = True
-            else:
-                grab_dict['hold'] = False
-
+            self.viewing_the_status()
             self.agent_message = agent.env_step(self.cur_step)
-
 
         elif SERVER:
             img_processor = ImageProcessor(self.world,
@@ -534,6 +558,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
                                            arm=self.agent_hand.hand_contour)
             self.cur_step = img_processor.run(self.last_step)
             self.last_step = [obj['center'] for obj in self.cur_step]
+            self.viewing_the_status()
             self.agent_message = agent.env_step(self.cur_step)
             self.Keyboard()
 

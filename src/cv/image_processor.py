@@ -28,7 +28,6 @@ class ImageProcessor(RoiAnalysis):
         self.ALPHA = 180 / np.arccos(-1)
         self.my_world = world
         self.img = filename
-        #self.img_gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
         self.arm_size = arm_size
         self.pi_alpha = np.pi / 180
         if self.server:
@@ -282,11 +281,11 @@ class ImageProcessor(RoiAnalysis):
             obj_data['rois'].append(
                 self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
             )
-            if not self.server:
-                cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
-        for point in approx_contour:
-            if not self.server:
-                cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
+        #     if not self.server:
+        #         cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
+        # for point in approx_contour:
+        #     if not self.server:
+        #         cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
         obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
         dist = np.max(point_max - point_min) // 2 + 2
         width_height = point_max - point_min
