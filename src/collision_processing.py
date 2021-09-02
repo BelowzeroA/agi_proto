@@ -252,34 +252,62 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             if self.min_ind:
                 self.world.bodies[self.min_ind].angle += 0.5
 
-        if bt[pygame.K_q] or agent.actions['grab']:
-            if self.grab and self.min_ind:
-                self.world.bodies[self.min_ind].gravityScale = 1.0
-                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
-                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
-                self.min_ind = None
-                self.grab = False
-            elif self.grab and not self.min_ind:
-                self.grab = False
-            else:
-                #self.hand_rect = self.hand_close.get_rect(center=self.hand_rect.center)
-                self.grab = True
-                list_ind = []
-                for ind in range(len(self.world.bodies)):
-                    u = our_zoom(self.world.bodies[ind].worldCenter)
-                    dist = (abs(self.hand_rect.center[0] - u[0]) +
-                            abs(self.hand_rect.center[1] - u[1]))
-                    if dist < 20:
-                        list_ind.append((ind, dist))
-                if len(list_ind) > 0:
-                    self.min_ind = 0
-                    for ind in range(len(list_ind)):
-                        if list_ind[self.min_ind][1] > list_ind[ind][1]:
-                            self.min_ind = ind
-                    self.min_ind = list_ind[self.min_ind][0]
-                    self.world.bodies[self.min_ind].gravityScale = 0.0
-                    self.world.bodies[self.min_ind].linearVelocity[0] = 0
-                    self.world.bodies[self.min_ind].linearVelocity[1] = 0
+        if self.grab and self.min_ind and agent.actions['grab'] == 0:
+            self.world.bodies[self.min_ind].gravityScale = 1.0
+            self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+            self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+            self.min_ind = None
+            self.grab = False
+
+        elif self.grab and not self.min_ind and agent.actions['grab'] == 0:
+            self.grab = False
+
+        elif not self.grab and agent.actions['grab'] == 1:
+            self.grab = True
+            list_ind = []
+            for ind in range(len(self.world.bodies)):
+                u = our_zoom(self.world.bodies[ind].worldCenter)
+                dist = (abs(self.hand_rect.center[0] - u[0]) +
+                        abs(self.hand_rect.center[1] - u[1]))
+                if dist < 20:
+                    list_ind.append((ind, dist))
+            if len(list_ind) > 0:
+                self.min_ind = 0
+                for ind in range(len(list_ind)):
+                    if list_ind[self.min_ind][1] > list_ind[ind][1]:
+                        self.min_ind = ind
+                self.min_ind = list_ind[self.min_ind][0]
+                self.world.bodies[self.min_ind].gravityScale = 0.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = 0
+                self.world.bodies[self.min_ind].linearVelocity[1] = 0
+
+        # if bt[pygame.K_q] or agent.actions['grab']:
+        #     if self.grab and self.min_ind:
+        #         self.world.bodies[self.min_ind].gravityScale = 1.0
+        #         self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+        #         self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+        #         self.min_ind = None
+        #         self.grab = False
+        #     elif self.grab and not self.min_ind:
+        #         self.grab = False
+        #     else:
+        #         self.grab = True
+        #         list_ind = []
+        #         for ind in range(len(self.world.bodies)):
+        #             u = our_zoom(self.world.bodies[ind].worldCenter)
+        #             dist = (abs(self.hand_rect.center[0] - u[0]) +
+        #                     abs(self.hand_rect.center[1] - u[1]))
+        #             if dist < 20:
+        #                 list_ind.append((ind, dist))
+        #         if len(list_ind) > 0:
+        #             self.min_ind = 0
+        #             for ind in range(len(list_ind)):
+        #                 if list_ind[self.min_ind][1] > list_ind[ind][1]:
+        #                     self.min_ind = ind
+        #             self.min_ind = list_ind[self.min_ind][0]
+        #             self.world.bodies[self.min_ind].gravityScale = 0.0
+        #             self.world.bodies[self.min_ind].linearVelocity[0] = 0
+        #             self.world.bodies[self.min_ind].linearVelocity[1] = 0
 
         self.arm_step['right'] = right
         self.arm_step['up'] = up
@@ -432,33 +460,62 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         up = 0
         rotation = 0
 
-        if agent.actions['grab']:
-            if self.grab and self.min_ind:
-                self.world.bodies[self.min_ind].gravityScale = 1.0
-                self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
-                self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
-                self.min_ind = None
-                self.grab = False
-            elif self.grab and not self.min_ind:
-                self.grab = False
-            else:
-                self.grab = True
-                list_ind = []
-                for ind in range(len(self.world.bodies)):
-                    u = our_zoom(self.world.bodies[ind].worldCenter)
-                    dist = (abs(self.hand_rect.center[0] - u[0]) +
-                            abs(self.hand_rect.center[1] - u[1]))
-                    if dist < 20:
-                        list_ind.append((ind, dist))
-                if len(list_ind) > 0:
-                    self.min_ind = 0
-                    for ind in range(len(list_ind)):
-                        if list_ind[self.min_ind][1] > list_ind[ind][1]:
-                            self.min_ind = ind
-                    self.min_ind = list_ind[self.min_ind][0]
-                    self.world.bodies[self.min_ind].gravityScale = 0.0
-                    self.world.bodies[self.min_ind].linearVelocity[0] = 0
-                    self.world.bodies[self.min_ind].linearVelocity[1] = 0
+        if self.grab and self.min_ind and agent.actions['grab'] == 0:
+            self.world.bodies[self.min_ind].gravityScale = 1.0
+            self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+            self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+            self.min_ind = None
+            self.grab = False
+
+        elif self.grab and not self.min_ind and agent.actions['grab'] == 0:
+            self.grab = False
+
+        elif not self.grab and agent.actions['grab'] == 1:
+            self.grab = True
+            list_ind = []
+            for ind in range(len(self.world.bodies)):
+                u = our_zoom(self.world.bodies[ind].worldCenter)
+                dist = (abs(self.hand_rect.center[0] - u[0]) +
+                        abs(self.hand_rect.center[1] - u[1]))
+                if dist < 20:
+                    list_ind.append((ind, dist))
+            if len(list_ind) > 0:
+                self.min_ind = 0
+                for ind in range(len(list_ind)):
+                    if list_ind[self.min_ind][1] > list_ind[ind][1]:
+                        self.min_ind = ind
+                self.min_ind = list_ind[self.min_ind][0]
+                self.world.bodies[self.min_ind].gravityScale = 0.0
+                self.world.bodies[self.min_ind].linearVelocity[0] = 0
+                self.world.bodies[self.min_ind].linearVelocity[1] = 0
+
+        # if agent.actions['grab']:
+        #     if self.grab and self.min_ind:
+        #         self.world.bodies[self.min_ind].gravityScale = 1.0
+        #         self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
+        #         self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+        #         self.min_ind = None
+        #         self.grab = False
+        #     elif self.grab and not self.min_ind:
+        #         self.grab = False
+        #     else:
+        #         self.grab = True
+        #         list_ind = []
+        #         for ind in range(len(self.world.bodies)):
+        #             u = our_zoom(self.world.bodies[ind].worldCenter)
+        #             dist = (abs(self.hand_rect.center[0] - u[0]) +
+        #                     abs(self.hand_rect.center[1] - u[1]))
+        #             if dist < 20:
+        #                 list_ind.append((ind, dist))
+        #         if len(list_ind) > 0:
+        #             self.min_ind = 0
+        #             for ind in range(len(list_ind)):
+        #                 if list_ind[self.min_ind][1] > list_ind[ind][1]:
+        #                     self.min_ind = ind
+        #             self.min_ind = list_ind[self.min_ind][0]
+        #             self.world.bodies[self.min_ind].gravityScale = 0.0
+        #             self.world.bodies[self.min_ind].linearVelocity[0] = 0
+        #             self.world.bodies[self.min_ind].linearVelocity[1] = 0
 
         if agent.actions['move_left']:
             k = 1 if agent.actions['move_left'] == 2 else 0.5
