@@ -68,11 +68,12 @@ def our_zoom(vertices):
 def parse_arguments():
     parser = ArgumentParser(__doc__)
     parser.add_argument("--server", "-s", help="run without pygame?", default=False)
+    parser.add_argument("--dist", "-d", help="distance for grab", default=25)
     return parser.parse_args()
 
 args = parse_arguments()
 SERVER = args.server
-
+DISTANCE = args.dist
 
 class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
 
@@ -293,7 +294,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 u = our_zoom(self.world.bodies[ind].worldCenter)
                 dist = (abs(self.hand_rect.center[0] - u[0]) +
                         abs(self.hand_rect.center[1] - u[1]))
-                if dist < 20:
+                if dist < DISTANCE:
                     list_ind.append((ind, dist))
             if len(list_ind) > 0:
                 self.min_ind = 0
