@@ -458,6 +458,15 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         up = 0
         rotation = 0
 
+        if self.min_ind:
+            if type(self.world.bodies[self.min_ind].fixtures[0].shape) == Box2D.b2CircleShape:
+                approx_contour = self.get_approx_for_circle(self.world.bodies[self.min_ind])
+            elif type(self.world.bodies[self.min_ind].fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                approx_contour = self.get_approx_for_poly(self.world.bodies[self.min_ind].fixtures[0].shape.vertices,
+                                                          self.world.bodies[self.min_ind].transform.angle,
+                                                          self.world.bodies[self.min_ind].transform.position)
+            approx_contour = [our_zoom(p) for p in approx_contour]
+
         if self.grab and self.min_ind and agent.actions['grab'] == 0:
             self.world.bodies[self.min_ind].gravityScale = 1.0
             self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
@@ -473,8 +482,8 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
             list_ind = []
             for ind in range(len(self.world.bodies)):
                 u = our_zoom(self.world.bodies[ind].worldCenter)
-                dist = (abs(self.hand_rect.center[0] - u[0]) +
-                        abs(self.hand_rect.center[1] - u[1]))
+                dist = (abs(self.agent_hand._center[0] - u[0]) +
+                        abs(self.agent_hand._center[1] - u[1]))
                 if dist < 20:
                     list_ind.append((ind, dist))
             if len(list_ind) > 0:
@@ -518,19 +527,22 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         if agent.actions['move_left']:
             k = 1 if agent.actions['move_left'] == 2 else 0.5
             right -= 10 * k
-            if not self.agent_hand.left < -31.9:
-                self.agent_hand -= (0.5 * k, 0)
+            if not (self.min_ind and len([p[0] for p in approx_contour if p[0] < 3]) != 0):
+                if not self.agent_hand.left < -31.9:
+                    self.agent_hand -= (0.5 * k, 0)
                 if self.min_ind:
                     self.world.bodies[self.min_ind].worldCenter[0] -= 0.5 * k
                 elif self.push:
                     self.hand_push = self.hand_push_l
                     self.push_near_object(val=25)
 
+
         if agent.actions['move_right']:
             k = 1 if agent.actions['move_right'] == 2 else 0.5
             right += 10 * k
-            if not self.agent_hand.right > 31.9:
-                self.agent_hand += (0.5 * k, 0)
+            if not (self.min_ind and len([p[0] for p in approx_contour if p[0] > 636]) != 0):
+                if not self.agent_hand.right > 31.9:
+                    self.agent_hand += (0.5 * k, 0)
                 if self.min_ind:
                     self.world.bodies[self.min_ind].worldCenter[0] += 0.5 * k
                 elif self.push:
@@ -540,18 +552,20 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         if agent.actions['move_up']:
             k = 1 if agent.actions['move_up'] == 2 else 0.5
             up += 10 * k
-            if not self.agent_hand.top > 16:
-                self.agent_hand += (0, 0.5 * k)
+            if not (self.min_ind and len([p[1] for p in approx_contour if p[1] < 255]) != 0):
+                if not self.agent_hand.top > 16:
+                    self.agent_hand += (0, 0.5 * k)
                 if self.min_ind:
                     self.world.bodies[self.min_ind].worldCenter[1] += 0.5 * k
 
         if agent.actions['move_down']:
             k = 1 if agent.actions['move_down'] == 2 else 0.5
             up -= 10 * k
-            if not self.agent_hand.bottom < 0.1:
-                self.agent_hand -= (0, 0.5 * k)
-            if self.min_ind:
-                self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
+            if not (self.min_ind and len([p[1] for p in approx_contour if p[1] > 435]) != 0):
+                if not self.agent_hand.bottom < 0.1:
+                    self.agent_hand -= (0, 0.5 * k)
+                if self.min_ind:
+                    self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
 
         self.arm_step['right'] = right
         self.arm_step['up'] = up
