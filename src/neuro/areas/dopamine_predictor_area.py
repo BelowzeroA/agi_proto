@@ -47,7 +47,7 @@ class DopaminePredictorArea(NeuralArea):
         )
         self.traced_connections.append(traced_connection)
 
-    def receive_dope(self, dope_value: int):
+    def receive_dope(self, dope_value: int, self_induced=False):
         if dope_value < 2:
             return
         current_tick = self.container.network.current_tick

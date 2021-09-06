@@ -1,11 +1,12 @@
 import random
 
+from neuro.areas.receptive_area import ReceptiveArea
 from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 
 
-class SpatialReceptiveArea(NeuralArea):
+class SpatialReceptiveArea(ReceptiveArea):
 
     def __init__(
             self,

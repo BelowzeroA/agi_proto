@@ -1,7 +1,6 @@
 import random
 
-from neuro.hyper_params import HyperParameters
-from neuro.neural_area import NeuralArea
+from neuro.areas.receptive_area import ReceptiveArea
 from neuro.neural_pattern import NeuralPattern
 
 ANGLE_MARGINS = [22.5, 45.0, 67.5, 90.0, 110.5, 135.0, 157.5, 180.0]
@@ -9,11 +8,12 @@ NUM_SECTORS = 4
 NEURAL_SPACE_SIZE = len(ANGLE_MARGINS) * 3 * NUM_SECTORS
 
 
-class PrimitivesReceptiveArea(NeuralArea):
+class PrimitivesReceptiveArea(ReceptiveArea):
 
     def __init__(self, name: str, agent, zone):
         super().__init__(name, agent, zone)
         self.output_space_size = NEURAL_SPACE_SIZE
+        self.is_receptive = True
 
     def _categorize_angle(self, angle: float):
         for i in range(len(ANGLE_MARGINS)):

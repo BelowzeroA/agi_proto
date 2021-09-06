@@ -14,6 +14,7 @@ class NeuralArea:
         self.output: NeuralPattern = None
         self.output_space_size = 0
         self.zone = zone
+        self.is_receptive = False
 
     @classmethod
     def add(cls, name, agent, zone, **kwargs) -> 'NeuralArea':
@@ -22,7 +23,10 @@ class NeuralArea:
         zone.areas.append(area)
         return area
 
-    def receive_dope(self, dope_value: int):
+    def reset_output(self):
+        pass
+
+    def receive_dope(self, dope_value: int, self_induced=False):
         pass
 
     def update(self):

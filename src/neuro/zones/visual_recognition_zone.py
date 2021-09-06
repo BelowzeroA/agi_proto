@@ -5,6 +5,7 @@ from neuro.areas.encoder_area import EncoderArea
 from neuro.areas.primitives_receptive_area import PrimitivesReceptiveArea
 from neuro.areas.spatial_receptive_area import SpatialReceptiveArea
 from neuro.hyper_params import HyperParameters
+from neuro.neural_area import NeuralArea
 from neuro.neural_zone import NeuralZone
 
 
@@ -30,95 +31,140 @@ class VisualRecognitionZone(NeuralZone):
         self.shift_up_receptive_area = SpatialReceptiveArea.add(name='shift-up', agent=self.agent, zone=self)
         self.shift_down_receptive_area = SpatialReceptiveArea.add(name='shift-down', agent=self.agent, zone=self)
 
-        presentation_area = EncoderArea.add(
-            name='shape representations',
+        self.shape = EncoderArea.add(
+            name='shape',
             agent=self.agent,
             zone=self,
-            output_space_size=HyperParameters.encoder_space_size,
-            output_norm=HyperParameters.encoder_norm,
             surprise_level=2,
             recognition_threshold=0.9
         )
 
         place_presentation_area = EncoderArea.add(
-            name='place representations',
+            name='shift',
             agent=self.agent,
             zone=self,
-            output_space_size=HyperParameters.encoder_space_size,
-            output_norm=HyperParameters.encoder_norm,
             min_inputs=2,
             surprise_level=0,
             convey_new_pattern=True,
         )
 
         self._shape_shift_area = EncoderArea.add(
-            name='shape and place',
+            name='shape and shift',
             agent=self.agent,
             zone=self,
-            output_space_size=HyperParameters.encoder_space_size,
-            output_norm=HyperParameters.encoder_norm,
             min_inputs=2,
             surprise_level=0,
             recognition_threshold=0.9,
             convey_new_pattern=True,
         )
 
-        self.container.add_connection(
-            source=self.primitives_receptive_area,
-            target=presentation_area
-        )
+        self.container.add_connection(source=self.primitives_receptive_area, target=self.shape)
 
-        self.container.add_connection(
-            source=self.shift_right_receptive_area,
-            target=place_presentation_area
-        )
-        self.container.add_connection(
-            source=self.shift_left_receptive_area,
-            target=place_presentation_area
-        )
-        self.container.add_connection(
-            source=self.shift_up_receptive_area,
-            target=place_presentation_area
-        )
-        self.container.add_connection(
-            source=self.shift_down_receptive_area,
-            target=place_presentation_area
-        )
+        self.container.add_connection(source=self.shift_right_receptive_area, target=place_presentation_area)
+        self.container.add_connection(source=self.shift_left_receptive_area, target=place_presentation_area)
+        self.container.add_connection(source=self.shift_up_receptive_area, target=place_presentation_area)
+        self.container.add_connection(source=self.shift_down_receptive_area, target=place_presentation_area)
 
-        self.container.add_connection(
-            source=place_presentation_area,
-            target=self.shape_shift_area
-        )
-        self.container.add_connection(
-            source=presentation_area,
-            target=self.shape_shift_area
-        )
+        self.container.add_connection(source=place_presentation_area, target=self.shape_shift_area)
+        self.container.add_connection(source=self.shape, target=self.shape_shift_area)
 
         self.body_distortion = BodyShapeDistortionArea.add(name='distortion', agent=self.agent, zone=self)
 
+        self.velocity_left = SpatialReceptiveArea.add(name='velocity-left', agent=self.agent, zone=self, grid_size=10)
+        self.velocity_right = SpatialReceptiveArea.add(name='velocity-right', agent=self.agent, zone=self, grid_size=10)
+        self.velocity_up = SpatialReceptiveArea.add(name='velocity-up', agent=self.agent, zone=self, grid_size=10)
+        self.velocity_down = SpatialReceptiveArea.add(name='velocity-down', agent=self.agent, zone=self, grid_size=10)
+
+        self.velocity = EncoderArea.add(
+            name='velocity',
+            agent=self.agent,
+            zone=self,
+            min_inputs=1,
+            convey_new_pattern=True,
+            recognition_threshold=0.9,
+        )
+
+        self.body_velocity = EncoderArea.add(
+            name='body velocity',
+            agent=self.agent,
+            zone=self,
+            min_inputs=2,
+            surprise_level=2,
+            recognition_threshold=0.9,
+        )
+
+        self.container.add_connection(source=self.velocity_left, target=self.velocity)
+        self.container.add_connection(source=self.velocity_right, target=self.velocity)
+        self.container.add_connection(source=self.velocity_up, target=self.velocity)
+        self.container.add_connection(source=self.velocity_down, target=self.velocity)
+
+        self.container.add_connection(source=self.velocity, target=self.body_velocity)
+        self.container.add_connection(source=self.shape, target=self.body_velocity)
+
+        self.distance_receptive_area = SpatialReceptiveArea.add(
+            name='distance',
+            agent=self.agent,
+            zone=self,
+            output_space_size=200,
+            grid_size=20
+        )
+
+        self.distance = EncoderArea.add(
+            name='eye-shift-distance',
+            agent=self.agent,
+            zone=self,
+            min_inputs=1,
+            surprise_level=0,
+            recognition_threshold=0.9,
+        )
+
+        self.container.add_connection(source=self.distance_receptive_area, target=self.distance)
+
     def activate_on_body(self, body_data, prev_body_data, data):
-        body_shape_distorted = self._body_shape_distorted(data)
+        # body_shape_distorted = self._body_shape_distorted(data)
         body_shape_distorted = body_data['overlay'] == True or (prev_body_data and prev_body_data['overlay'] == True)
         self.body_distortion.activate_on_body(body_shape_distorted)
 
-        self._activate_eye_shift_areas(body_data, prev_body_data)
+        if body_data['name'] != 'hand':
+            self._activate_eye_shift_areas(body_data, prev_body_data)
         self.primitives_receptive_area.activate_on_body(body_data['general_presentation'], body_data['name'])
 
-    def _body_shape_distorted(self, data):
-        threshold = 30
-        there_is_circle = False
-        hand_data = [d for d in data if d['name'] == 'hand'][0]
-        for body_data in data:
-            if body_data['name'] == 'circle':
-                there_is_circle = True
-            if body_data['name'] != 'hand':
-                shift_x = abs(hand_data['center'][0] - body_data['center'][0])
-                shift_y = abs(hand_data['center'][1] - body_data['center'][1])
-                if math.sqrt(shift_x ** 2 + shift_y ** 2) <= threshold:
-                    return True
-        if not there_is_circle:
-            return True
-        return False
+        self._activate_velocity(body_data)
+        self._activate_eye_shift_distance_area(body_data, prev_body_data)
+
+    def _activate_velocity(self, body_data):
+        max_velocity = 5
+        if 'offset' not in body_data:
+            return
+
+        x = body_data['offset'][0] / max_velocity
+        y = body_data['offset'][1] / max_velocity
+        x = min(1, x) if x > 0 else max(-1, x)
+        y = min(1, y) if y > 0 else max(-1, y)
+
+        velocity_left, velocity_right = (0, x) if x > 0 else (-x, 0)
+        velocity_up, velocity_down = (0, y) if y > 0 else (-y, 0)
+
+        self.velocity_left.activate_on_body(velocity_left)
+        self.velocity_right.activate_on_body(velocity_right)
+        self.velocity_up.activate_on_body(velocity_up)
+        self.velocity_down.activate_on_body(velocity_down)
+
+    # def _body_shape_distorted(self, data):
+    #     threshold = 30
+    #     there_is_circle = False
+    #     hand_data = [d for d in data if d['name'] == 'hand'][0]
+    #     for body_data in data:
+    #         if body_data['name'] == 'circle':
+    #             there_is_circle = True
+    #         if body_data['name'] != 'hand':
+    #             shift_x = abs(hand_data['center'][0] - body_data['center'][0])
+    #             shift_y = abs(hand_data['center'][1] - body_data['center'][1])
+    #             if math.sqrt(shift_x ** 2 + shift_y ** 2) <= threshold:
+    #                 return True
+    #     if not there_is_circle:
+    #         return True
+    #     return False
 
     def _activate_eye_shift_areas(self, body_data, prev_body_data):
         from agent import ROOM_WIDTH, ROOM_HEIGHT
@@ -130,8 +176,7 @@ class VisualRecognitionZone(NeuralZone):
             shift_y = body_data['center'][1] - prev_body_data['center'][1]
         else:
             return
-            shift_x = body_data['center'][0] - half_width
-            shift_y = body_data['center'][1] - half_height
+
         shift_x = shift_x / half_width
         shift_y = shift_y / half_height
 
@@ -168,3 +213,27 @@ class VisualRecognitionZone(NeuralZone):
         self.shift_left_receptive_area.activate_on_body(eye_shift_left)
         self.shift_up_receptive_area.activate_on_body(eye_shift_up)
         self.shift_down_receptive_area.activate_on_body(eye_shift_down)
+
+    def _activate_eye_shift_distance_area(self, body_data, prev_body_data):
+        from agent import ROOM_WIDTH, ROOM_HEIGHT
+
+        half_width = ROOM_WIDTH // 3
+        half_height = ROOM_HEIGHT // 3
+
+        if prev_body_data:
+            shift_x = body_data['center'][0] - prev_body_data['center'][0]
+            shift_y = body_data['center'][1] - prev_body_data['center'][1]
+        else:
+            return
+
+        distance_norm = int(math.sqrt(half_height ** 2 + half_width ** 2))
+        distance = int(math.sqrt(shift_x ** 2 + shift_y ** 2))
+        distance = distance / distance_norm
+        self.distance_receptive_area.activate_on_body(distance)
+
+    def on_area_updated(self, area: NeuralArea):
+        if area == self.velocity and area.output:
+            self.agent.on_message({
+                'message': 'attention-strategy',
+                'strategy': 'focus',
+            })

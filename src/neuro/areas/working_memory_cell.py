@@ -8,4 +8,5 @@ class WorkingMemoryCell(NeuralArea):
         self.intensity = 0
 
     def update(self):
-        self.output = self.inputs[0]
+        if len(self.inputs):
+            self.output = self.inputs[0]

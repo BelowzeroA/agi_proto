@@ -28,6 +28,8 @@ class NeuralPattern:
 
         if value:
             for pattern in all_patterns:
+                if space_size != pattern.space_size or len(value) != pattern.value_size:
+                    continue
                 intersection = set(value) & set(pattern.value)
                 if len(intersection) == len(value):
                     return pattern
@@ -51,7 +53,7 @@ class NeuralPattern:
 
     def log(self, area: 'NeuralArea'):
         current_tick = area.container.network.current_tick
-        self.history[current_tick] = area
+        self.history[current_tick] = [area]
 
     def merge_histories(self, histories: list):
         all_ticks = set()
@@ -67,11 +69,17 @@ class NeuralPattern:
                         self.history[tick] = []
                     self.history[tick].append(history[tick])
 
-    def _repr(self):
+    def _repr0(self):
         if self.data is not None:
             return f'({self._id}) data={self.data} {self.value}'
         else:
             return f'({self._id}) {self.value}'
+
+    def _repr(self):
+        if self.data is not None:
+            return f'({self._id}) {self.data}'
+        else:
+            return f'({self._id})'
 
     def __repr__(self):
         return self._repr()

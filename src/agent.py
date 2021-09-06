@@ -1,5 +1,6 @@
 import random
 
+from common.logger import Logger
 from neuro.container import Container
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
@@ -10,7 +11,7 @@ from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
 ROOM_WIDTH = 640
 ROOM_HEIGHT = 480
-MAX_ATTENTION_DISTANCE = 200
+MAX_ATTENTION_DISTANCE = 300
 ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'grab']
 ATTENTION_SPAN = 5
 
@@ -22,6 +23,7 @@ class Agent:
         self.container = Container()
         self._build_network()
         self.network = Network(container=self.container, agent=self)
+        self.logger = Logger(self)
         self.focused_body_idx = None
         self.surprise = 0
         self.surprise_history = {}
@@ -130,7 +132,16 @@ class Agent:
             return None
         return distances[0][0]
 
+    @staticmethod
+    def body_out_of_room(body_data):
+        center = body_data['center']
+        return center[0] < 0 or center[0] > ROOM_WIDTH or center[1] < 0 or center[1] > ROOM_HEIGHT
+
     def get_moving_body(self, data):
+        for body_data in data:
+            if body_data['offset'][0] != 0 or body_data['offset'][1] \
+                    and body_data['name'] != 'hand' and not self.body_out_of_room(body_data):
+                return body_data
         for body_data in data:
             if body_data['offset'][0] != 0 or body_data['offset'][1] and body_data['name'] == 'hand':
                 return body_data
@@ -183,7 +194,9 @@ class Agent:
 
     def activate_receptive_areas(self, packet):
         current_tick = self.network.current_tick
-        if current_tick - self.last_motion_tick > 7:
+        if current_tick - self.last_motion_tick > 7 * HyperParameters.network_steps_per_env_step:
+            self.attention_strategy = 'loop'
+        if current_tick < 30:
             self.attention_strategy = 'loop'
         if self.attention_strategy == 'loop':
             self.loop_strategy(packet)
@@ -207,6 +220,8 @@ class Agent:
             self.surprise = 0
             self.network.step()
 
+        self.network.reset_perception()
+
     def env_step(self, packet):
         self.actions = {a: 0 for a in ACTIONS}
         self.activate_receptive_areas(packet)
@@ -219,12 +234,12 @@ class Agent:
         if self.last_attended_body:
             attention_x = self.last_attended_body['center'][0]
             attention_y = self.last_attended_body['center'][1]
-        # if self.network.current_tick > 150:
-        #     print(f'{self.network.current_tick}: grab={self.actions["grab"]}')
+
+        self.logger.write()
+
         return {
             'current_tick': self.network.current_tick + 1,
             'surprise': self.surprise,
             'actions': self.actions,
             'attention-spot': {'x': attention_x, 'y': attention_y}
         }
-
