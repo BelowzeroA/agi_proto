@@ -261,7 +261,7 @@ class ImageProcessor(RoiAnalysis):
         else:
             return approx_contour
 
-    def obj_func(self, data, approx_contour, arm, flag=True):
+    def obj_func(self, data, approx_contour, arm, flag=True, world_body=None):
         if len(approx_contour) == 0:
             return
         obj_data = {}
@@ -286,7 +286,12 @@ class ImageProcessor(RoiAnalysis):
         # for point in approx_contour:
         #     if not self.server:
         #         cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
-        obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+        # obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+        if world_body:
+            obj_data['center'] = our_zoom(world_body.worldCenter)
+        else:
+            obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+
         dist = np.max(point_max - point_min) // 2 + 2
         width_height = point_max - point_min
         obj_data['width'] = width_height[0]
@@ -336,7 +341,7 @@ class ImageProcessor(RoiAnalysis):
 #                for approx_contour in line[0]:
 #                approx_contour = self.obj_filter(approx_contour)
                 if approx_contour:
-                    self.obj_func(temp_data, approx_contour, arm, True)
+                    self.obj_func(temp_data, approx_contour, arm, True, world_body)
                 temp_obj = temp_data[0]
                 for temp in temp_data[1:]:
                     temp_obj['rois'].extend(temp['rois'])
