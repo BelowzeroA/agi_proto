@@ -34,12 +34,14 @@ from agent import Agent
 from utils import path_from_root
 
 from agent_hand import AgentHand
+from main import SERVER, DISTANCE
 
 
 HZ = 34
 
 
 agent = Agent()
+
 
 
 try:
@@ -65,15 +67,6 @@ def our_zoom(vertices):
     y = vertices[1]
     return x * 10 + 320, (20 - y) * 10 + 240
 
-def parse_arguments():
-    parser = ArgumentParser(__doc__)
-    parser.add_argument("--server", "-s", help="run without pygame?", default=False)
-    parser.add_argument("--dist", "-d", help="distance for grab", default=25)
-    return parser.parse_args()
-
-args = parse_arguments()
-SERVER = args.server
-DISTANCE = args.dist
 
 class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
 
@@ -389,6 +382,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         agent_hand += (9.1, 6)
     num_step = 0
     last_step = None
+    print(os.environ)
     agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
                                                                           'y': -1}}
 
@@ -634,22 +628,3 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         self.num_step += 1
 
         super(CollisionProcessing, self).Step(settings)
-
-
-def main(test_class):
-    """
-    Loads the test class and executes it.
-    """
-    print("Loading %s..." % test_class.name)
-    test = test_class()
-    if SERVER:
-        while True:
-            test.Step(test.settings)
-    if fwSettings.onlyInit:
-        return
-    test.run()
-
-
-
-if __name__ == "__main__":
-    main(CollisionProcessing)
