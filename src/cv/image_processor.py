@@ -356,6 +356,6 @@ class ImageProcessor(RoiAnalysis):
         else:
             for obj in data:
                 obj['offset'] = (0, 0)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
+        # cv.waitKey(0)
+        # cv.destroyAllWindows()
         return data
