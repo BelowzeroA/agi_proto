@@ -1,11 +1,13 @@
 import os
 
-
-os.environ['dist'] = '35'
-os.environ['server'] = '0'
-SERVER = bool(int(os.environ['server']))
-DISTANCE = int(os.environ['dist'])
-
+if "server" in os.environ:
+    SERVER = bool(int(os.environ['server']))
+else:
+    SERVER = False
+if 'dist' in os.environ:
+    DISTANCE = int(os.environ['dist'])
+else:
+    DISTANCE = 25
 
 
 def main(test_class):
