@@ -12,6 +12,10 @@ class Network:
         self.container.network = self
 
     def _step_impl(self):
+
+        for zone in self.container.zones:
+            zone.on_step_begin()
+
         for area in self.container.areas:
             area.update()
 
@@ -22,9 +26,17 @@ class Network:
             for zone in self.container.zones:
                 zone.spread_dope(self.agent.surprise)
 
+        for zone in self.container.zones:
+            zone.on_step_end()
+
     def reset(self):
         for area in self.container.areas:
-            area.inputs.clear()
+            for i in range(len(area.inputs)):
+                area.inputs[i] = None
+
+    def reset_perception(self):
+        for area in self.container.areas:
+            area.reset_output()
 
     def run(self, max_iter=100):
         self.current_tick = 1

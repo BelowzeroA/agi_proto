@@ -14,16 +14,16 @@ class EncoderArea(NeuralArea):
             name: str,
             agent,
             zone,
-            output_space_size: int,
-            output_norm: int,
+            output_space_size: int = 0,
+            output_norm: int = 0,
             min_inputs: int = 1,
             surprise_level: int = 1,
             recognition_threshold=None,
             convey_new_pattern=False,
     ):
         super().__init__(name=name, agent=agent, zone=zone)
-        self.output_space_size = output_space_size
-        self.output_norm = output_norm
+        self.output_space_size = output_space_size or HyperParameters.encoder_space_size
+        self.output_norm = output_norm or HyperParameters.encoder_norm
         self.min_inputs = min_inputs
         self.processor = SDRProcessor(self)
         self.patterns: List[NeuralPattern] = []
@@ -121,11 +121,12 @@ class EncoderArea(NeuralArea):
         output_pattern.data = pattern.data
         output_pattern.log(self)
 
-        connection = PatternsConnection(
+        connection = PatternsConnection.add(
             source=pattern,
-            target=output_pattern
+            target=output_pattern,
+            agent=self.agent,
+            tick=self.agent.network.current_tick
         )
-        connection.tick = self.agent.network.current_tick
         self.pattern_connections.append(connection)
 
         return output_pattern, True

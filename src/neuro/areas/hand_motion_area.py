@@ -38,7 +38,7 @@ class HandMotionArea(ActionArea):
 
     def _generate_action_patterns(self):
         for i in ACTION_SPACE:
-            if self.name == 'Action: grab' and i == 2:
+            if self.name == 'Action: grab' and i > 1:
                 continue
             pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
             pattern.generate_random()

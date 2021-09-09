@@ -74,10 +74,12 @@ class ReflexArea(NeuralArea):
         self.make_move(ticks=35, right=1)
         self.make_move(ticks=10, left=2, up=2)
         self.make_move(ticks=11, right=2, down=2)
-        self.make_move(ticks=10, left=1, up=2, grab=1)
+        self.make_move(ticks=10, left=1, up=2, grab=0)
         self.make_move(ticks=5, right=2, grab=0)
         self.make_move(ticks=10, down=2)
         self.make_move(ticks=10, up=2)
+        self.make_move(ticks=10, right=2)
+        self.make_move(ticks=10, left=2, down=2)
         return self.move_return
 
     def make_move(self, ticks, left=0, right=0, up=0, down=0, grab=0):
@@ -165,21 +167,22 @@ class ReflexArea(NeuralArea):
         connection = self.get_connection_from_to(source=input_pattern, target=combination[1])
         if not connection:
 
-            input_data = input_pattern.data
-            action_value = combination[1]
-            if action_value.data > 0:
-                if self.name == 'Reflex: move_left' and \
-                    'shift-right' in input_data and \
-                    input_data['shift-right'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
-                    print('aaaaaa')
-                if self.name == 'Reflex: move_right' and \
-                    'shift-left' in input_data and \
-                    input_data['shift-left'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
-                    print('aaaaaa')
+            # input_data = input_pattern.data
+            # action_value = combination[1]
+            # if action_value.data > 0:
+            #     if self.name == 'Reflex: move_left' and \
+            #         'shift-right' in input_data and \
+            #         input_data['shift-right'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
+            #         print('aaaaaa')
+            #     if self.name == 'Reflex: move_right' and \
+            #         'shift-left' in input_data and \
+            #         input_data['shift-left'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
+            #         print('aaaaaa')
 
-            connection = PatternsConnection(
+            connection = PatternsConnection.add(
                 source=input_pattern,
                 target=combination[1],
+                agent=self.agent,
                 weight=0.5,
                 tick=combination_tick,
                 dope_value=dope_value
@@ -191,13 +194,14 @@ class ReflexArea(NeuralArea):
                 processed_connections.add(connection)
                 connection.update_weight(dope_value * HyperParameters.learning_rate)
 
-    def receive_dope(self, dope_value: int):
+    def receive_dope(self, dope_value: int, self_induced=False):
         current_tick = self.container.network.current_tick
         if dope_value < 2:
             return
 
         processed_connections = set()
-        for causing_combination_tick in range(current_tick - 8, current_tick - 2):
+        start_tick = current_tick - 4 if self_induced else current_tick - 8
+        for causing_combination_tick in range(start_tick, current_tick - 2):
             if causing_combination_tick in self.history:
                 self._process_input_output_combination(causing_combination_tick, dope_value, processed_connections)
 
