@@ -382,6 +382,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         agent_hand += (9.1, 6)
     num_step = 0
     last_step = None
+    last_data = None
     print(os.environ)
     agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
                                                                           'y': -1}}
@@ -425,7 +426,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
 
         world.CreateBody(
             type=b2_dynamicBody,
-            position=(10, 0),
+            position=(10, 2),
             fixtures=circle,
             awake=True,
         )
@@ -598,15 +599,15 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         # because they may belong to multiple contact points
         self.world.bodies[-1].awake = True
         self.world.bodies[-2].awake = True
-
         if (not SERVER) and np.all(self.pixel_array != None):
             img_processor = ImageProcessor(self.world, SERVER, self.pixel_array, arm_size=(
                 self.hand_rect.topleft[0],
                 self.hand_rect.topleft[1],
                 self.hand_rect.size[0],
                 self.hand_rect.size[1]))
-            self.cur_step = img_processor.run(self.last_step)
+            self.cur_step = img_processor.run(self.last_step, self.last_data)
             self.last_step = [obj['center'] for obj in self.cur_step]
+            self.last_data = self.cur_step
             self.viewing_the_status()
             self.agent_message = agent.env_step(self.cur_step)
 
@@ -619,8 +620,9 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
                                                self.agent_hand.right - self.agent_hand.left,
                                                self.agent_hand.top - self.agent_hand.bottom),
                                            arm=self.agent_hand.hand_contour)
-            self.cur_step = img_processor.run(self.last_step)
+            self.cur_step = img_processor.run(self.last_step, self.last_data)
             self.last_step = [obj['center'] for obj in self.cur_step]
+            self.last_data = self.cur_step
             self.viewing_the_status()
             self.agent_message = agent.env_step(self.cur_step)
             self.Keyboard()

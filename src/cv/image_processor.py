@@ -261,7 +261,8 @@ class ImageProcessor(RoiAnalysis):
         else:
             return approx_contour
 
-    def obj_func(self, data, approx_contour, arm, flag=True, world_body=None):
+    def obj_func(self, data, approx_contour, arm, flag=True, world_body=None, arm_obj=None):
+        arm_flag = False
         if len(approx_contour) == 0:
             return
         obj_data = {}
@@ -278,20 +279,22 @@ class ImageProcessor(RoiAnalysis):
         for point in roi:
             x_mean += point.args[0]
             y_mean += point.args[1]
-            obj_data['rois'].append(
-                self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
-            )
-        #     if not self.server:
-        #         cv.circle(self.img, (int(point[0]), int(point[1])), 4, (0, 0, 255), -1)
-        # for point in approx_contour:
-        #     if not self.server:
-        #         cv.circle(self.img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1)
-        # obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
+
         if world_body:
             obj_data['center'] = our_zoom(world_body.worldCenter)
         else:
             obj_data['center'] = (int(round(x_mean / len(roi))), int(round(y_mean / len(roi))))
-
+            arm_flag = True
+        if arm_flag and arm_obj:
+            for i, point in enumerate(roi):
+                temp_roi = arm_obj['rois'][i]
+                temp_roi['roi'] = point.args
+                obj_data['rois'].append(temp_roi)
+        else:
+            for point in roi:
+                obj_data['rois'].append(
+                    self.quadrant_roi_analysis(point, approx_contour, 10, self.img)
+                )
         dist = np.max(point_max - point_min) // 2 + 2
         width_height = point_max - point_min
         obj_data['width'] = width_height[0]
@@ -302,13 +305,16 @@ class ImageProcessor(RoiAnalysis):
             obj_data['name'] = 'circle'
         else:
             obj_data['name'] = 'hand'
-        obj_data['general_presentation'] = self.quadrant_roi_analysis(
-            obj_data['center'],
-            self.general_presentation(approx_contour,
-                                      point_min,
-                                      point_max),
-            dist,
-            self.img)
+        if arm_flag and arm_obj:
+            obj_data['general_presentation'] = arm_obj['general_presentation']
+        else:
+            obj_data['general_presentation'] = self.quadrant_roi_analysis(
+                obj_data['center'],
+                self.general_presentation(approx_contour,
+                                          point_min,
+                                          point_max),
+                dist,
+                self.img)
         if flag:
             if self.is_point_inside_polygon(approx_contour, arm):
                 obj_data['overlay'] = True
@@ -316,8 +322,9 @@ class ImageProcessor(RoiAnalysis):
                 obj_data['overlay'] = False
         data.append(obj_data)
 
-    def run(self, last_position=None):
+    def run(self, last_position, last_data):
         data = []
+        find_flag = False
         if self.server:
             arm = self.agent_hand
         else:
@@ -334,6 +341,16 @@ class ImageProcessor(RoiAnalysis):
                                                               world_body.transform.position)
                 else:
                     continue
+                temp_center = world_body.worldCenter
+                temp_center = our_zoom(temp_center)
+                if last_position:
+                    for i in range(len(last_position)):
+                        if last_position[i][0] == temp_center[0] and last_position[i][1] == temp_center[1]:
+                            data.append(last_data[i])
+                            find_flag = True
+                            break
+                if find_flag:
+                    continue
                 approx_contour = [our_zoom(p) for p in approx_contour]
 #                line = self.separate_hand_obj(approx_contour, arm)
 #
@@ -346,7 +363,10 @@ class ImageProcessor(RoiAnalysis):
                 for temp in temp_data[1:]:
                     temp_obj['rois'].extend(temp['rois'])
                 data.append(temp_obj)
-        self.obj_func(data, arm, arm, False)
+        if last_data:
+            self.obj_func(data, arm, arm, False, arm_obj=last_data[-1])
+        else:
+            self.obj_func(data, arm, arm, False)
         #cv.imshow('img', self.img)
         data[-1]['overlay'] = 'hand'
         if last_position:

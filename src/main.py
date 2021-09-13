@@ -1,5 +1,6 @@
 import os
 
+
 if "server" in os.environ:
     SERVER = bool(int(os.environ['server']))
 else:
