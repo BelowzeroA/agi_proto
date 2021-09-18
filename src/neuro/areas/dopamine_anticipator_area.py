@@ -7,7 +7,8 @@ from neuro.patterns_connection import PatternsConnection
 
 MIN_ENERGY = 0.9
 TRACE_INTERVAL = 6 * HyperParameters.network_steps_per_env_step
-ENERGY_CHARGE_STEP = 0.02
+ENERGY_CHARGE_STEP = 0.03
+NUM_ELEMENTS_IN_CHAIN = 3
 
 
 class PatternDopeEnergy:
@@ -33,6 +34,19 @@ class PatternDopeEnergy:
         self.value = max(0, value)
 
 
+class PatternBurstChain:
+
+    def __init__(self, patterns: List[NeuralPattern], tick: int):
+        self.hash = self._get_patterns_hash(patterns)
+        self.last_activation_tick = tick
+        self.hit_count = 1
+
+    @staticmethod
+    def _get_patterns_hash(patterns: List[NeuralPattern]):
+        _hashed = [str(pattern._id) for pattern in patterns]
+        return '|'.join(_hashed)
+
+
 class DopamineAnticipatorArea(NeuralArea):
 
     def __init__(
@@ -45,18 +59,32 @@ class DopamineAnticipatorArea(NeuralArea):
         self.history = {}
         self.pattern_energies: List[PatternDopeEnergy] = []
         self.burst_history = []
+        self.chains = []
 
-    def update(self):
+    def _check_if_chained(self, pattern) -> bool:
         current_tick = self.agent.network.current_tick
-        input_pattern = self.inputs[0]
-        if input_pattern is None:
-            return
+        chain_list = [bh[1] for bh in self.burst_history[-NUM_ELEMENTS_IN_CHAIN + 1:]]
+        if len(chain_list) < NUM_ELEMENTS_IN_CHAIN - 1:
+            return False
+        chain_list.append(pattern)
+        chain = PatternBurstChain(chain_list, current_tick)
+        existing_chains = [c for c in self.chains if c.hash == chain.hash]
+        if len(existing_chains) == 0:
+            self.chains.append(chain)
+            return False
+        existing_chain = existing_chains[0]
+        existing_chain.hit_count += 1
+        chained = False
+        if existing_chain.hit_count > 5 and existing_chain.last_activation_tick > current_tick - 200:
+            chained = True
+        existing_chain.last_activation_tick = current_tick
+        return chained
 
-        self.history[current_tick] = input_pattern
-
+    def process_pattern(self, pattern: NeuralPattern):
+        current_tick = self.agent.network.current_tick
         trace_interval = 8 * HyperParameters.network_steps_per_env_step
         energies = [pe for pe in self.pattern_energies
-                    if pe.pattern == input_pattern and pe.tick < current_tick - trace_interval and pe.value > 0]
+                    if pe.pattern == pattern and pe.tick < current_tick - trace_interval and pe.value > 0]
         dope_value = 0
         for pe in energies:
             if pe.energy >= MIN_ENERGY:
@@ -64,10 +92,27 @@ class DopamineAnticipatorArea(NeuralArea):
                 pe.last_activation_tick = current_tick
                 pe.control_tick = current_tick + TRACE_INTERVAL
                 pe.energy = 0.0
+                if self._check_if_chained(pe.pattern):
+                    pe.energy = -3
                 self.burst_history.append((current_tick, pe.pattern))
 
-        if dope_value > 0:
-            self.zone.receive_self_induced_dope(dope_value)
+        return dope_value
+
+    def update(self):
+        current_tick = self.agent.network.current_tick
+        input_patterns = [pattern for pattern in self.inputs if pattern]
+        if len(input_patterns) == 0:
+            return
+
+        self.history[current_tick] = input_patterns
+
+        dope_value = 0
+        for pattern in input_patterns:
+            dope_value += self.process_pattern(pattern)
+
+        average_dope_value = dope_value // len(input_patterns)
+        if average_dope_value > 0:
+            self.zone.receive_self_induced_dope(average_dope_value)
 
         self._distress_patterns()
         self._refresh_patterns_energy()
@@ -98,22 +143,23 @@ class DopamineAnticipatorArea(NeuralArea):
         start_tick = current_tick - 4 if self_induced else current_tick - 8
         for causing_tick in range(start_tick, current_tick - 2):
             if causing_tick in self.history:
-                pattern = self.history[causing_tick]
-                if pattern not in processed_input_patterns:
-                    energy_recs = [pe for pe in self.pattern_energies if pe.pattern == pattern]
-                    if energy_recs:
-                        energy_rec = energy_recs[0]
-                        energy_rec.set_value(dope_value)
-                        if not self_induced:
-                            energy_rec.energy = 1.0
-                    else:
-                        energy_rec = PatternDopeEnergy(
-                            pattern=pattern,
-                            value=dope_value,
-                            tick=causing_tick,
-                        )
-                        self.pattern_energies.append(energy_rec)
-                    processed_input_patterns.append(pattern)
+                patterns = self.history[causing_tick]
+                for pattern in patterns:
+                    if pattern not in processed_input_patterns:
+                        energy_recs = [pe for pe in self.pattern_energies if pe.pattern == pattern]
+                        if energy_recs:
+                            energy_rec = energy_recs[0]
+                            energy_rec.set_value(dope_value)
+                            if not self_induced:
+                                energy_rec.energy = 1.0
+                        else:
+                            energy_rec = PatternDopeEnergy(
+                                pattern=pattern,
+                                value=dope_value,
+                                tick=causing_tick,
+                            )
+                            self.pattern_energies.append(energy_rec)
+                        processed_input_patterns.append(pattern)
 
 
 

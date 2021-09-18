@@ -13,7 +13,6 @@ class PrimitivesReceptiveArea(ReceptiveArea):
     def __init__(self, name: str, agent, zone):
         super().__init__(name, agent, zone)
         self.output_space_size = NEURAL_SPACE_SIZE
-        self.is_receptive = True
 
     def _categorize_angle(self, angle: float):
         for i in range(len(ANGLE_MARGINS)):

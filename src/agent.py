@@ -1,19 +1,26 @@
+import os
 import random
 
 from common.logger import Logger
+from common.timer import Timer
 from neuro.container import Container
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
 from neuro.zones.motor_zone import MotorZone
 from neuro.zones.reflex_zone import ReflexZone
+from neuro.zones.tactile_zone import TactileZone
 from neuro.zones.visual_attention_zone import VisualAttentionZone
 from neuro.zones.visual_recognition_zone import VisualRecognitionZone
+from utils import path_from_root
 
 ROOM_WIDTH = 640
 ROOM_HEIGHT = 480
-MAX_ATTENTION_DISTANCE = 300
+MAX_ATTENTION_DISTANCE = 500
 ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'grab']
+MACRO_ACTIONS = ['move', 'grab']
 ATTENTION_SPAN = 5
+
+log_path = os.path.join(path_from_root('logs'), 'log.txt')
 
 
 class Agent:
@@ -23,7 +30,7 @@ class Agent:
         self.container = Container()
         self._build_network()
         self.network = Network(container=self.container, agent=self)
-        self.logger = Logger(self)
+        self.logger = Logger(self, log_path)
         self.focused_body_idx = None
         self.surprise = 0
         self.surprise_history = {}
@@ -36,17 +43,22 @@ class Agent:
         self.moving_body_start_tick = 0
         self.moving_body = None
         self.last_attended_body = None
+        self.last_attended_was_hand = False
+        self.last_report_tick = 0
         self.body_cache = {}
+        self.execution_timer = Timer()
 
     def _build_network(self):
         self.visual_recognition = VisualRecognitionZone.add(name='VR', agent=self)
         self.visual_attention = VisualAttentionZone.add(name='VA', agent=self)
+        self.tactile = TactileZone(name='TA', agent=self)
         self.motor = MotorZone.add(name='MO', agent=self)
         self.reflex = ReflexZone.add(
             name='RE',
             agent=self,
             motor_zone=self.motor,
-            vr_zone=self.visual_recognition
+            vr_zone=self.visual_recognition,
+            ta_zone=self.tactile
         )
 
     def on_message(self, data: dict):
@@ -101,7 +113,7 @@ class Agent:
         curr_body_data = body_data[self.focused_body_idx]
 
         prev_body_data = None
-        self._serial_activate_on_body(curr_body_data, prev_body_data, body_data)
+        self._serial_activate_on_body(curr_body_data, prev_body_data, packet)
 
     def _get_distance(self, x, y, body_data):
         dx = abs(x - body_data['center'][0])
@@ -152,7 +164,7 @@ class Agent:
             body_name = body_data['name']
             self.body_cache[body_name] = body_data['general_presentation']
 
-    def focus_strategy(self, packet):
+    def focus_strategy_legacy(self, packet):
         data = packet['data']
         if len(data) == 0 or len(data) > 3:
             return
@@ -169,7 +181,7 @@ class Agent:
 
         moving_body = self.get_moving_body(data)
         if moving_body is None:
-            self._serial_activate_on_body(attended_body, None, data)
+            self._serial_activate_on_body(attended_body, None, packet)
             return
 
         prev_attended_body = attended_body
@@ -190,7 +202,49 @@ class Agent:
         if body_name in self.body_cache:
             attended_body['general_presentation'] = self.body_cache[body_name]
 
-        self._serial_activate_on_body(attended_body, prev_attended_body, data)
+        self._serial_activate_on_body(attended_body, prev_attended_body, packet)
+
+    def focus_strategy(self, packet):
+        data = packet['data']
+        if len(data) == 0 or len(data) > 3:
+            return
+
+        current_tick = self.network.current_tick
+
+        if not self.body_cache:
+            self._cache_bodies(data)
+
+        hand = [b for b in data if b['name'] == 'hand'][0]
+        moving_body = self.get_moving_body(data)
+        if moving_body == hand:
+            moving_body = None
+
+        prev_attended_body = None
+        if current_tick - self.moving_body_start_tick > 3 * HyperParameters.network_steps_per_env_step:
+            # if self.last_attended_was_hand:
+            if self.last_attended_body and self.last_attended_body['name'] == 'hand':
+                if moving_body is None:
+                    attended_body = self.find_nearest_neighbor(data, hand)
+                else:
+                    attended_body = moving_body
+            else:
+                attended_body = hand
+            self.moving_body_start_tick = current_tick
+            if attended_body:
+                prev_attended_body = self.last_attended_body
+                self.last_attended_body = attended_body
+                self.last_attended_was_hand = not self.last_attended_was_hand
+        else:
+            attended_body = self.last_attended_body
+
+        if attended_body is None:
+            attended_body = self.last_attended_body
+
+        body_name = attended_body['name']
+        if body_name in self.body_cache:
+            attended_body['general_presentation'] = self.body_cache[body_name]
+
+        self._serial_activate_on_body(attended_body, prev_attended_body, packet)
 
     def activate_receptive_areas(self, packet):
         current_tick = self.network.current_tick
@@ -211,9 +265,10 @@ class Agent:
         else:
             return self.focused_body_idx - 1
 
-    def _serial_activate_on_body(self, body_data, prev_body_data=None, data=None):
-        self.visual_recognition.activate_on_body(body_data, prev_body_data, data)
+    def _serial_activate_on_body(self, body_data, prev_body_data=None, packet=None):
+        self.visual_recognition.activate_on_body(body_data, prev_body_data, packet['data'])
         self.visual_attention.activate_on_body(body_data)
+        self.tactile.activate(packet['mode'])
 
         self.network.verbose = False
         for i in range(HyperParameters.network_steps_per_env_step):
@@ -222,11 +277,13 @@ class Agent:
 
         self.network.reset_perception()
 
-    def env_step(self, packet):
-        self.actions = {a: 0 for a in ACTIONS}
-        self.activate_receptive_areas(packet)
-        if self.container.network.verbose:
-            print(f'Surprise: {self.surprise}')
+    def _convert_move_actions(self):
+        self.actions['move_left'] = self.actions['move']['left']
+        self.actions['move_right'] = self.actions['move']['right']
+        self.actions['move_up'] = self.actions['move']['up']
+        self.actions['move_down'] = self.actions['move']['down']
+
+    def _convert_attention_spot(self):
         attention_x, attention_y = -1, -1
         if self.attention_spot:
             attention_x = int(self.attention_spot['attention-horizontal'] * ROOM_WIDTH)
@@ -235,7 +292,42 @@ class Agent:
             attention_x = self.last_attended_body['center'][0]
             attention_y = self.last_attended_body['center'][1]
 
+        return attention_x, attention_y
+
+    def _log_body_positions(self, packet):
+        circle_pos = None
+        triangle_pos = None
+        hand_pos = None
+        for body_data in packet['data']:
+            if body_data['name'] == 'circle':
+                circle_pos = body_data['center']
+            elif body_data['name'] == 'triangle':
+                triangle_pos = body_data['center']
+            elif body_data['name'] == 'hand':
+                hand_pos = body_data['center']
+        self.logger.write_content(f'Positions hand: {hand_pos}, circle: {circle_pos}, triangle: {triangle_pos}')
+
+    def env_step(self, packet):
+        current_tick = self.network.current_tick + 1
+
+        if current_tick - self.last_report_tick > 98:
+            self.execution_timer.show(f'current_tick x100: {(current_tick + 1) // 100}, last 100 ticks', flush=True)
+            self.last_report_tick = current_tick
+            self.execution_timer.start()
+
+        self.actions = {a: 0 for a in ACTIONS}
+        self.activate_receptive_areas(packet)
+
+        if self.container.network.verbose:
+            print(f'Surprise: {self.surprise}')
+
+        self._log_body_positions(packet)
+
+        self._convert_move_actions()
+
         self.logger.write()
+
+        attention_x, attention_y = self._convert_attention_spot()
 
         return {
             'current_tick': self.network.current_tick + 1,

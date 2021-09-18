@@ -5,7 +5,7 @@ from neuro.areas.action_area import ActionArea
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 
-ACTION_SPACE = [0, 1, 2]
+GRAB_ACTION_SPACE = [0, 1]
 ACTION_LONGEVITY = 8
 
 
@@ -36,14 +36,55 @@ class HandMotionArea(ActionArea):
     def get_patterns(self):
         return self.patterns
 
+    def _get_motion_patterns(self):
+        actions = []
+        actions.append({'left': 0, 'right': 0, 'up': 0, 'down': 0})
+
+        actions.append({'left': 1, 'right': 0, 'up': 0, 'down': 0})
+        actions.append({'left': 2, 'right': 0, 'up': 0, 'down': 0})
+        actions.append({'left': 0, 'right': 1, 'up': 0, 'down': 0})
+        actions.append({'left': 0, 'right': 2, 'up': 0, 'down': 0})
+
+        actions.append({'left': 0, 'right': 0, 'up': 1, 'down': 0})
+        actions.append({'left': 0, 'right': 0, 'up': 2, 'down': 0})
+        actions.append({'left': 0, 'right': 0, 'up': 0, 'down': 1})
+        actions.append({'left': 0, 'right': 0, 'up': 0, 'down': 2})
+
+        actions.append({'left': 1, 'right': 0, 'up': 1, 'down': 0})
+        actions.append({'left': 2, 'right': 0, 'up': 1, 'down': 0})
+        actions.append({'left': 1, 'right': 0, 'up': 2, 'down': 0})
+        actions.append({'left': 2, 'right': 0, 'up': 2, 'down': 0})
+
+        actions.append({'left': 0, 'right': 1, 'up': 1, 'down': 0})
+        actions.append({'left': 0, 'right': 2, 'up': 1, 'down': 0})
+        actions.append({'left': 0, 'right': 1, 'up': 2, 'down': 0})
+        actions.append({'left': 0, 'right': 2, 'up': 2, 'down': 0})
+
+        actions.append({'left': 1, 'right': 0, 'up': 0, 'down': 1})
+        actions.append({'left': 2, 'right': 0, 'up': 0, 'down': 1})
+        actions.append({'left': 1, 'right': 0, 'up': 0, 'down': 2})
+        actions.append({'left': 2, 'right': 0, 'up': 0, 'down': 2})
+
+        actions.append({'left': 0, 'right': 1, 'up': 0, 'down': 1})
+        actions.append({'left': 0, 'right': 2, 'up': 0, 'down': 1})
+        actions.append({'left': 0, 'right': 1, 'up': 0, 'down': 2})
+        actions.append({'left': 0, 'right': 2, 'up': 0, 'down': 2})
+        return actions
+
     def _generate_action_patterns(self):
-        for i in ACTION_SPACE:
-            if self.name == 'Action: grab' and i > 1:
-                continue
-            pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
-            pattern.generate_random()
-            pattern.data = i
-            self.patterns.append(pattern)
+        if self.name == 'Action: move':
+            for data in self._get_motion_patterns():
+                pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
+                pattern.generate_random()
+                pattern.data = data
+                self.patterns.append(pattern)
+
+        elif self.name == 'Action: grab':
+            for data in GRAB_ACTION_SPACE:
+                pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
+                pattern.generate_random()
+                pattern.data = data
+                self.patterns.append(pattern)
 
     def update(self):
         input_pattern = self.inputs[0]

@@ -20,6 +20,7 @@ class EncoderArea(NeuralArea):
             surprise_level: int = 1,
             recognition_threshold=None,
             convey_new_pattern=False,
+            cached_output_num_ticks=0,
     ):
         super().__init__(name=name, agent=agent, zone=zone)
         self.output_space_size = output_space_size or HyperParameters.encoder_space_size
@@ -34,12 +35,20 @@ class EncoderArea(NeuralArea):
         self.surprise_level = surprise_level
         self.convey_new_pattern = convey_new_pattern
         self.recognition_threshold = recognition_threshold or HyperParameters.pattern_recognition_threshold
+        self.cached_output_num_ticks = cached_output_num_ticks
+        self._cached_output = None
+        self._cached_output_start_tick = 0
 
     def update(self):
+        current_tick = self.agent.network.current_tick
         self.output = None
         alive_inputs = len([pattern for pattern in self.inputs if pattern])
         if alive_inputs < self.min_inputs:
             self.reset_inputs()
+            if self.cached_output_num_ticks > 0 and self._cached_output and \
+                current_tick - self._cached_output_start_tick < self.cached_output_num_ticks:
+                self.output = self._cached_output
+                self.history[current_tick] = self.output
             return
 
         combined_pattern = SDRProcessor.make_combined_pattern(self.inputs, self.input_sizes)
@@ -50,8 +59,9 @@ class EncoderArea(NeuralArea):
         else:
             self.output = None
 
-        self.history[self.agent.network.current_tick] = self.output
-
+        self.history[current_tick] = self.output
+        self._cached_output = self.output
+        self._cached_output_start_tick = current_tick
         self.reset_inputs()
 
         super().update()
@@ -125,7 +135,8 @@ class EncoderArea(NeuralArea):
             source=pattern,
             target=output_pattern,
             agent=self.agent,
-            tick=self.agent.network.current_tick
+            tick=self.agent.network.current_tick,
+            area_name=self.name
         )
         self.pattern_connections.append(connection)
 

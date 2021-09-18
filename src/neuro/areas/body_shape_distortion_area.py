@@ -16,6 +16,7 @@ class BodyShapeDistortionArea(ReceptiveArea):
         self.current_state = False
         self.counter = 0
         self.last_reset_tick = 0
+        self.use_counter = 0
 
     def activate_on_body(self, data):
         self.current_state = data
@@ -29,10 +30,12 @@ class BodyShapeDistortionArea(ReceptiveArea):
                 self.last_reset_tick = current_tick
             self.counter = 0
 
-        if current_tick > 20000:
-            return
+        # if current_tick > 20000:
+        #     return
 
-        if self.counter == 1 and current_tick - self.last_reset_tick > 10 * HyperParameters.network_steps_per_env_step:
+        cooling_period = (5 + self.use_counter // 2) * HyperParameters.network_steps_per_env_step
+        if self.counter == 1 and current_tick - self.last_reset_tick > cooling_period:
+            self.use_counter += 1
             self.agent.on_message({
                 'message': 'pattern_created',
                 'surprise_level': 3,
