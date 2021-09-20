@@ -2,19 +2,23 @@ from neuro.areas.dopamine_anticipator_area import DopamineAnticipatorArea
 from neuro.areas.dopamine_predictor_area import DopaminePredictorArea
 from neuro.areas.reflex_area import ReflexArea
 from neuro.neural_zone import NeuralZone
+from neuro.patterns_combiner import PatternsCombiner
 from neuro.zones.motor_zone import MotorZone
+from neuro.zones.tactile_zone import TactileZone
 from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
 
 class ReflexZone(NeuralZone):
 
-    def __init__(self, name: str, agent, motor_zone: MotorZone, vr_zone: VisualRecognitionZone):
+    def __init__(self, name: str, agent, motor_zone: MotorZone, vr_zone: VisualRecognitionZone, ta_zone: TactileZone):
         super().__init__(name, agent)
         self.accumulated_dope = 0
         self.motor_zone = motor_zone
         self.vr_zone = vr_zone
+        self.ta_zone = ta_zone
+        self.combiner = PatternsCombiner(agent)
         self._integrate_with_motor_zone()
-        self._integrate_with_visual_recognition_zone()
+        self._integrate_with_perception()
 
     def _integrate_with_motor_zone(self):
         action_areas = self.motor_zone.get_areas()
@@ -38,15 +42,26 @@ class ReflexZone(NeuralZone):
                 target=action_area,
             )
 
-    def _integrate_with_visual_recognition_zone(self):
-        perceptive_area = self.vr_zone.shape_shift_area
+    def _integrate_with_perception(self):
+
+        self.container.add_connection(
+            source=self.ta_zone.output_area,
+            target=self.combiner,
+        )
+
+        self.container.add_connection(
+            source=self.vr_zone.shape_shift_area,
+            target=self.combiner,
+        )
+
+        self.container.add_connection(
+            source=self.vr_zone.distance,
+            target=self.combiner,
+        )
 
         for area in self.areas:
             if isinstance(area, ReflexArea):
-                self.container.add_connection(
-                    source=perceptive_area,
-                    target=area,
-                )
+                self.combiner.output_areas.append(area)
 
         dopamine_anticipator = DopamineAnticipatorArea.add(
             name=f'dope anticipator',
@@ -54,16 +69,14 @@ class ReflexZone(NeuralZone):
             zone=self,
         )
 
-        self.container.add_connection(
-            source=perceptive_area,
-            target=dopamine_anticipator,
-        )
+        self.combiner.output_areas.append(dopamine_anticipator)
 
     def receive_self_induced_dope(self, dope_value: int):
         self.accumulated_dope += dope_value
 
     def on_step_begin(self):
         self.accumulated_dope = 0
+        self.combiner.combine_transfer()
 
     def on_step_end(self):
         # Spread dopamine-induced excitation across all the reflex areas

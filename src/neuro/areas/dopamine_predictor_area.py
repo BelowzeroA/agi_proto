@@ -6,7 +6,7 @@ from neuro.neural_pattern import NeuralPattern
 from neuro.patterns_connection import PatternsConnection
 
 
-TRACE_INTERVAL = 6 * HyperParameters.network_steps_per_env_step
+TRACE_INTERVAL = 15 * HyperParameters.network_steps_per_env_step
 
 
 class TracedConnection:
@@ -46,6 +46,7 @@ class DopaminePredictorArea(NeuralArea):
             start_tick=current_tick,
         )
         self.traced_connections.append(traced_connection)
+        self.agent.logger.write_content(f'starting to trace {connection}')
 
     def receive_dope(self, dope_value: int, self_induced=False):
         if dope_value < 2:

@@ -8,4 +8,4 @@ class HyperParameters:
     space_encoder_norm = 20
     encoder_norm = 20
     network_steps_per_env_step = 2
-    learning_rate = 0.1
+    learning_rate = 0.05

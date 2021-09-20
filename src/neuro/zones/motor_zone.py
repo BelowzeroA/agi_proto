@@ -12,8 +12,8 @@ class MotorZone(NeuralZone):
         self._add_actions()
 
     def _add_actions(self):
-        from agent import ACTIONS
-        for action in ACTIONS:
+        from agent import MACRO_ACTIONS
+        for action in MACRO_ACTIONS:
             area = HandMotionArea.add(
                 name=f'Action: {action}',
                 agent=self.agent,

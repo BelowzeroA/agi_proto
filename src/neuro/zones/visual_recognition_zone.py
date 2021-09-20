@@ -56,6 +56,7 @@ class VisualRecognitionZone(NeuralZone):
             surprise_level=0,
             recognition_threshold=0.9,
             convey_new_pattern=True,
+            cached_output_num_ticks=15,
         )
 
         self.container.add_connection(source=self.primitives_receptive_area, target=self.shape)
@@ -121,8 +122,8 @@ class VisualRecognitionZone(NeuralZone):
         self.container.add_connection(source=self.distance_receptive_area, target=self.distance)
 
     def activate_on_body(self, body_data, prev_body_data, data):
-        # body_shape_distorted = self._body_shape_distorted(data)
-        body_shape_distorted = body_data['overlay'] == True or (prev_body_data and prev_body_data['overlay'] == True)
+        body_shape_distorted = self._body_shape_distorted(data)
+        # body_shape_distorted = body_data['overlay'] == True or (prev_body_data and prev_body_data['overlay'] == True)
         self.body_distortion.activate_on_body(body_shape_distorted)
 
         if body_data['name'] != 'hand':
@@ -150,21 +151,21 @@ class VisualRecognitionZone(NeuralZone):
         self.velocity_up.activate_on_body(velocity_up)
         self.velocity_down.activate_on_body(velocity_down)
 
-    # def _body_shape_distorted(self, data):
-    #     threshold = 30
-    #     there_is_circle = False
-    #     hand_data = [d for d in data if d['name'] == 'hand'][0]
-    #     for body_data in data:
-    #         if body_data['name'] == 'circle':
-    #             there_is_circle = True
-    #         if body_data['name'] != 'hand':
-    #             shift_x = abs(hand_data['center'][0] - body_data['center'][0])
-    #             shift_y = abs(hand_data['center'][1] - body_data['center'][1])
-    #             if math.sqrt(shift_x ** 2 + shift_y ** 2) <= threshold:
-    #                 return True
-    #     if not there_is_circle:
-    #         return True
-    #     return False
+    def _body_shape_distorted(self, data):
+        threshold = 25
+        there_is_circle = False
+        hand_data = [d for d in data if d['name'] == 'hand'][0]
+        for body_data in data:
+            if body_data['name'] == 'circle':
+                there_is_circle = True
+            if body_data['name'] != 'hand':
+                shift_x = abs(hand_data['center'][0] - body_data['center'][0])
+                shift_y = abs(hand_data['center'][1] - body_data['center'][1])
+                if math.sqrt(shift_x ** 2 + shift_y ** 2) <= threshold:
+                    return True
+        if not there_is_circle:
+            return True
+        return False
 
     def _activate_eye_shift_areas(self, body_data, prev_body_data):
         from agent import ROOM_WIDTH, ROOM_HEIGHT

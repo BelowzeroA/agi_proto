@@ -7,7 +7,6 @@ from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 from neuro.patterns_connection import PatternsConnection
-from neuro.sdr_processor import SDRProcessor
 
 ACTION_LONGEVITY = 8 * HyperParameters.network_steps_per_env_step
 
@@ -39,20 +38,27 @@ class ReflexArea(NeuralArea):
         self.move_id = 1
         self.caller_id = 0
 
-    def get_connection_from(self, input_pattern: NeuralPattern):
+    def get_connection_from(self, input_patterns: List[NeuralPattern]):
         candidates = []
         for connection in self.connections:
-            if connection.source == input_pattern:
-                candidates.append((connection, connection.weight))
+            for pattern in input_patterns:
+                if connection.source == pattern:
+                    candidates.append((connection, connection.weight))
         if len(candidates) == 0:
             return None
 
         if len(candidates) > 1:
             candidates.sort(key=lambda x: x[1], reverse=True)
-        top_connection = candidates[0][0]
-        if top_connection.weight < 0.15:
+        top_weight = candidates[0][1]
+        if top_weight < 0.15:
             return None
-        return top_connection
+
+        top_connections = [c for c in candidates if c[1] == top_weight]
+        if len(top_connections) > 1:
+            top_connection = random.choice(top_connections)
+        else:
+            top_connection = top_connections[0]
+        return top_connection[0]
 
     def get_connection_from_to(self, source: NeuralPattern, target: NeuralPattern) -> PatternsConnection:
         for connection in self.connections:
@@ -80,6 +86,7 @@ class ReflexArea(NeuralArea):
         self.make_move(ticks=10, up=2)
         self.make_move(ticks=10, right=2)
         self.make_move(ticks=10, left=2, down=2)
+        self.make_move(ticks=10, left=0, up=2, grab=1)
         return self.move_return
 
     def make_move(self, ticks, left=0, right=0, up=0, down=0, grab=0):
@@ -113,37 +120,36 @@ class ReflexArea(NeuralArea):
         else:
             self.move_return = patterns[0]
 
+    def log_inputs(self):
+        if self.name == 'Reflex: move':
+            input_lengths = []
+            for input_pattern in self.inputs:
+                if input_pattern is None:
+                    return
+                input_lengths.append((input_pattern, len(input_pattern.data)))
+            input_lengths.sort(key=lambda x: x[1], reverse=True)
+            longest_pattern = input_lengths[0][0]
+            self.agent.logger.write_content(f'Observation {longest_pattern}')
+
     def update(self):
         current_tick = self.container.network.current_tick
 
-        if len(self.inputs) == 1:
-            combined_pattern = self.inputs[0]
-        else:
-            combined_pattern = SDRProcessor.make_combined_pattern(self.inputs, self.input_sizes)
+        self.log_inputs()
 
-        output = self.predefined_motion()
-        # output = None
+        # output = self.predefined_motion()
+        output = None
         predefined_move_chosen = output is not None
 
-        input_pattern = None
-        if combined_pattern:
-            found_pattern = self.find_pattern(combined_pattern)
-            if not found_pattern:
-                input_pattern = combined_pattern
-                self.input_patterns.append(input_pattern)
-            else:
-                input_pattern = found_pattern
-
-            if not predefined_move_chosen:
-                if self.active_pattern is None or current_tick - self.pattern_start_tick >= ACTION_LONGEVITY:
-                    connection = self.get_connection_from(input_pattern)
-                    if connection:
-                        self.dopamine_predictor.on_connection_activated(connection)
-                        self.pattern_start_tick = current_tick
-                        output = connection.target
-                        self.active_pattern = output
-                elif self.active_pattern:
-                    output = self.active_pattern
+        if not predefined_move_chosen:
+            if self.active_pattern is None or current_tick - self.pattern_start_tick >= ACTION_LONGEVITY:
+                connection = self.get_connection_from(self.inputs)
+                if connection:
+                    self.dopamine_predictor.on_connection_activated(connection)
+                    self.pattern_start_tick = current_tick
+                    output = connection.target
+                    self.active_pattern = output
+            elif self.active_pattern:
+                output = self.active_pattern
 
         if not output:
             # Choosing a random action
@@ -153,46 +159,42 @@ class ReflexArea(NeuralArea):
                 self.active_pattern = random.choice(patterns)
             output = self.active_pattern
 
-        self.history[current_tick] = (input_pattern, output)
-        output.log(self)
-
+        self.history[current_tick] = (self.inputs, output)
+        # output.log(self)
         self.output = output
 
-    def _process_input_output_combination(self, combination_tick: int, dope_value: int, processed_connections: set):
+    def _process_input_output_combination(
+            self,
+            combination_tick: int,
+            dope_value: int,
+            weight: float,
+            processed_connections: set
+    ):
         combination = self.history[combination_tick]
-        input_pattern = combination[0]
-        if not input_pattern:
+        input_patterns = combination[0]
+        alive_patterns = [p for p in input_patterns if p]
+        if len(alive_patterns) == 0:
             return
 
-        connection = self.get_connection_from_to(source=input_pattern, target=combination[1])
-        if not connection:
-
-            # input_data = input_pattern.data
-            # action_value = combination[1]
-            # if action_value.data > 0:
-            #     if self.name == 'Reflex: move_left' and \
-            #         'shift-right' in input_data and \
-            #         input_data['shift-right'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
-            #         print('aaaaaa')
-            #     if self.name == 'Reflex: move_right' and \
-            #         'shift-left' in input_data and \
-            #         input_data['shift-left'] > 0 and input_data['primitives'] in ['circle', 'triangle']:
-            #         print('aaaaaa')
-
-            connection = PatternsConnection.add(
-                source=input_pattern,
-                target=combination[1],
-                agent=self.agent,
-                weight=0.5,
-                tick=combination_tick,
-                dope_value=dope_value
-            )
-            self.connections.append(connection)
-            processed_connections.add(connection)
-        else:
-            if connection not in processed_connections:
+        for input_pattern in alive_patterns:
+            connection = self.get_connection_from_to(source=input_pattern, target=combination[1])
+            if not connection:
+                connection = PatternsConnection.add(
+                    source=input_pattern,
+                    target=combination[1],
+                    agent=self.agent,
+                    weight=weight,
+                    tick=combination_tick,
+                    dope_value=dope_value,
+                    area_name=self.name
+                )
+                self.connections.append(connection)
                 processed_connections.add(connection)
-                connection.update_weight(dope_value * HyperParameters.learning_rate)
+                self.agent.logger.write_content(f'connection created {connection}, weight={connection.weight}')
+            else:
+                if connection not in processed_connections:
+                    processed_connections.add(connection)
+                    connection.update_weight(dope_value * HyperParameters.learning_rate)
 
     def receive_dope(self, dope_value: int, self_induced=False):
         current_tick = self.container.network.current_tick
@@ -203,6 +205,10 @@ class ReflexArea(NeuralArea):
         start_tick = current_tick - 4 if self_induced else current_tick - 8
         for causing_combination_tick in range(start_tick, current_tick - 2):
             if causing_combination_tick in self.history:
-                self._process_input_output_combination(causing_combination_tick, dope_value, processed_connections)
-
-
+                weight = 0.15 * (causing_combination_tick - start_tick + 1)
+                self._process_input_output_combination(
+                    causing_combination_tick,
+                    dope_value,
+                    weight,
+                    processed_connections
+                )

@@ -56,6 +56,7 @@ class NeuralPattern:
         self.history[current_tick] = [area]
 
     def merge_histories(self, histories: list):
+        return
         all_ticks = set()
         for history in histories:
             for tick in history:
