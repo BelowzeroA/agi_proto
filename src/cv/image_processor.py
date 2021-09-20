@@ -350,6 +350,7 @@ class ImageProcessor(RoiAnalysis):
                             find_flag = True
                             break
                 if find_flag:
+                    find_flag = False
                     continue
                 approx_contour = [our_zoom(p) for p in approx_contour]
 #                line = self.separate_hand_obj(approx_contour, arm)
@@ -367,7 +368,7 @@ class ImageProcessor(RoiAnalysis):
             self.obj_func(data, arm, arm, False, arm_obj=last_data[-1])
         else:
             self.obj_func(data, arm, arm, False)
-        #cv.imshow('img', self.img)
+        # cv.imshow('img', self.img)
         data[-1]['overlay'] = 'hand'
         if last_position:
             for obj, last_center in zip(data, last_position):
@@ -378,4 +379,6 @@ class ImageProcessor(RoiAnalysis):
                 obj['offset'] = (0, 0)
         # cv.waitKey(0)
         # cv.destroyAllWindows()
+        if len(data) != 3:
+            print(len(data))
         return data
