@@ -9,6 +9,8 @@ from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_zone import NeuralZone
 
+AREA_NAME_TOUCH = 'touch'
+
 
 class TactileZone(NeuralZone):
 
@@ -28,11 +30,12 @@ class TactileZone(NeuralZone):
         )
 
         self._touch_area = EncoderArea.add(
-            name='touch',
+            name=AREA_NAME_TOUCH,
             agent=self.agent,
             zone=self,
             surprise_level=2,
-            recognition_threshold=0.9
+            recognition_threshold=0.9,
+            accepts_dopamine_from=['self']
         )
 
         self.container.add_connection(source=self._receptive_area, target=self._touch_area)

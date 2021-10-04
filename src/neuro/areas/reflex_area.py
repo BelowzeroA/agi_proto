@@ -1,8 +1,11 @@
 import random
 from typing import List, Union, Dict
 
+import pattern as pattern
+
 from neuro.areas.action_area import ActionArea
 from neuro.areas.dopamine_predictor_area import DopaminePredictorArea
+from neuro.dopamine_portion import DopaminePortion
 from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
@@ -39,10 +42,11 @@ class ReflexArea(NeuralArea):
         self.caller_id = 0
 
     def get_connection_from(self, input_patterns: List[NeuralPattern]):
+        current_tick = self.agent.network.current_tick
         candidates = []
         for connection in self.connections:
             for pattern in input_patterns:
-                if connection.source == pattern:
+                if connection.source == pattern and current_tick - connection.tick > 30:
                     candidates.append((connection, connection.weight))
         if len(candidates) == 0:
             return None
@@ -86,7 +90,23 @@ class ReflexArea(NeuralArea):
         self.make_move(ticks=10, up=2)
         self.make_move(ticks=10, right=2)
         self.make_move(ticks=10, left=2, down=2)
-        self.make_move(ticks=10, left=0, up=2, grab=1)
+        self.make_move(ticks=15, right=2, up=1)
+        self.make_move(ticks=10, down=2)
+        self.make_move(ticks=13, left=2)
+        self.make_move(ticks=20, left=0, up=2, grab=1)
+        return self.move_return
+
+    def predefined_motion0(self):
+        self.move_return = None
+        self.caller_id = 0
+        self.make_move(ticks=16, left=2)
+        self.make_move(ticks=10, down=2)
+        self.make_move(ticks=35, right=1)
+        self.make_move(ticks=25, up=2, grab=1)
+        self.make_move(ticks=20, right=2, grab=1)
+        self.make_move(ticks=5, down=2, grab=1)
+        self.make_move(ticks=5, up=2, grab=0)
+        self.make_move(ticks=20, left=2, grab=0)
         return self.move_return
 
     def make_move(self, ticks, left=0, right=0, up=0, down=0, grab=0):
@@ -107,37 +127,30 @@ class ReflexArea(NeuralArea):
         else:
             self.move_state[self.move_id] = current_tick
 
-        if self.name == 'Reflex: move_left':
-            self.move_return = patterns[left]
-        elif self.name == 'Reflex: move_right':
-            self.move_return = patterns[right]
-        elif self.name == 'Reflex: move_up':
-            self.move_return = patterns[up]
-        elif self.name == 'Reflex: move_down':
-            self.move_return = patterns[down]
+        if self.name == 'Reflex: move':
+            for pattern in patterns:
+                if pattern.data['left'] == left and pattern.data['right'] == right and \
+                        pattern.data['down'] == down and pattern.data['up'] == up:
+                    self.move_return = pattern
+                    break
         elif self.name == 'Reflex: grab':
             self.move_return = patterns[grab]
         else:
             self.move_return = patterns[0]
 
     def log_inputs(self):
-        if self.name == 'Reflex: move':
-            input_lengths = []
-            for input_pattern in self.inputs:
-                if input_pattern is None:
-                    return
-                input_lengths.append((input_pattern, len(input_pattern.data)))
-            input_lengths.sort(key=lambda x: x[1], reverse=True)
-            longest_pattern = input_lengths[0][0]
-            self.agent.logger.write_content(f'Observation {longest_pattern}')
+        pass
+
+    def receive_inputs(self, input_patterns: List[NeuralPattern]):
+        pass
 
     def update(self):
         current_tick = self.container.network.current_tick
 
         self.log_inputs()
 
-        # output = self.predefined_motion()
-        output = None
+        output = self.predefined_motion()
+        # output = None
         predefined_move_chosen = output is not None
 
         if not predefined_move_chosen:
@@ -166,7 +179,7 @@ class ReflexArea(NeuralArea):
     def _process_input_output_combination(
             self,
             combination_tick: int,
-            dope_value: int,
+            dopamine_portions: List[DopaminePortion],
             weight: float,
             processed_connections: set
     ):
@@ -175,6 +188,8 @@ class ReflexArea(NeuralArea):
         alive_patterns = [p for p in input_patterns if p]
         if len(alive_patterns) == 0:
             return
+
+        dope_value = sum(portion.value for portion in dopamine_portions)
 
         for input_pattern in alive_patterns:
             connection = self.get_connection_from_to(source=input_pattern, target=combination[1])
@@ -186,7 +201,7 @@ class ReflexArea(NeuralArea):
                     weight=weight,
                     tick=combination_tick,
                     dope_value=dope_value,
-                    area_name=self.name
+                    area=self
                 )
                 self.connections.append(connection)
                 processed_connections.add(connection)
@@ -195,20 +210,27 @@ class ReflexArea(NeuralArea):
                 if connection not in processed_connections:
                     processed_connections.add(connection)
                     connection.update_weight(dope_value * HyperParameters.learning_rate)
+                else:
+                    connection.weight = weight
 
-    def receive_dope(self, dope_value: int, self_induced=False):
+    def accepts_dopamine(self, portion: DopaminePortion) -> bool:
+        return False
+
+    def receive_dope(self, dopamine_portions: List[DopaminePortion], self_induced=False):
         current_tick = self.container.network.current_tick
-        if dope_value < 2:
+        selected_portions = [portion for portion in dopamine_portions if self.accepts_dopamine(portion)]
+
+        if len(selected_portions) == 0:
             return
 
         processed_connections = set()
         start_tick = current_tick - 4 if self_induced else current_tick - 8
         for causing_combination_tick in range(start_tick, current_tick - 2):
             if causing_combination_tick in self.history:
-                weight = 0.15 * (causing_combination_tick - start_tick + 1)
+                weight = 0.1 * (causing_combination_tick - start_tick + 1) + 0.2
                 self._process_input_output_combination(
                     causing_combination_tick,
-                    dope_value,
+                    selected_portions,
                     weight,
                     processed_connections
                 )

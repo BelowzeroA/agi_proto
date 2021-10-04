@@ -8,11 +8,20 @@ from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_zone import NeuralZone
 
+AREA_NAME_VELOCITY = 'velocity'
+AREA_NAME_BODY_VELOCITY = 'body velocity'
+AREA_NAME_DISTORTION = 'distortion'
+AREA_NAME_SHAPE = 'shape'
+AREA_NAME_SHAPE_SHIFT = 'shape and shift'
+AREA_NAME_DISTANCE = 'distance'
+AREA_NAME_DISTANCE_CHANGE = 'distance change'
+
 
 class VisualRecognitionZone(NeuralZone):
 
     def __init__(self, name: str, agent):
         super().__init__(name, agent)
+        self.distance_to_bodies = {}
         self._build_areas()
 
     @property
@@ -32,7 +41,7 @@ class VisualRecognitionZone(NeuralZone):
         self.shift_down_receptive_area = SpatialReceptiveArea.add(name='shift-down', agent=self.agent, zone=self)
 
         self.shape = EncoderArea.add(
-            name='shape',
+            name=AREA_NAME_SHAPE,
             agent=self.agent,
             zone=self,
             surprise_level=2,
@@ -49,7 +58,7 @@ class VisualRecognitionZone(NeuralZone):
         )
 
         self._shape_shift_area = EncoderArea.add(
-            name='shape and shift',
+            name=AREA_NAME_SHAPE_SHIFT,
             agent=self.agent,
             zone=self,
             min_inputs=2,
@@ -57,6 +66,7 @@ class VisualRecognitionZone(NeuralZone):
             recognition_threshold=0.9,
             convey_new_pattern=True,
             cached_output_num_ticks=15,
+            accepts_dopamine_from=[AREA_NAME_DISTORTION]
         )
 
         self.container.add_connection(source=self.primitives_receptive_area, target=self.shape)
@@ -69,7 +79,7 @@ class VisualRecognitionZone(NeuralZone):
         self.container.add_connection(source=place_presentation_area, target=self.shape_shift_area)
         self.container.add_connection(source=self.shape, target=self.shape_shift_area)
 
-        self.body_distortion = BodyShapeDistortionArea.add(name='distortion', agent=self.agent, zone=self)
+        self.body_distortion = BodyShapeDistortionArea.add(name=AREA_NAME_DISTORTION, agent=self.agent, zone=self)
 
         self.velocity_left = SpatialReceptiveArea.add(name='velocity-left', agent=self.agent, zone=self, grid_size=10)
         self.velocity_right = SpatialReceptiveArea.add(name='velocity-right', agent=self.agent, zone=self, grid_size=10)
@@ -77,16 +87,17 @@ class VisualRecognitionZone(NeuralZone):
         self.velocity_down = SpatialReceptiveArea.add(name='velocity-down', agent=self.agent, zone=self, grid_size=10)
 
         self.velocity = EncoderArea.add(
-            name='velocity',
+            name=AREA_NAME_VELOCITY,
             agent=self.agent,
             zone=self,
             min_inputs=1,
             convey_new_pattern=True,
+            surprise_level=0,
             recognition_threshold=0.9,
         )
 
         self.body_velocity = EncoderArea.add(
-            name='body velocity',
+            name=AREA_NAME_BODY_VELOCITY,
             agent=self.agent,
             zone=self,
             min_inputs=2,
@@ -103,7 +114,7 @@ class VisualRecognitionZone(NeuralZone):
         self.container.add_connection(source=self.shape, target=self.body_velocity)
 
         self.distance_receptive_area = SpatialReceptiveArea.add(
-            name='distance',
+            name='distance-receptive',
             agent=self.agent,
             zone=self,
             output_space_size=200,
@@ -111,15 +122,33 @@ class VisualRecognitionZone(NeuralZone):
         )
 
         self.distance = EncoderArea.add(
-            name='eye-shift-distance',
+            name=AREA_NAME_DISTANCE,
             agent=self.agent,
             zone=self,
             min_inputs=1,
             surprise_level=0,
             recognition_threshold=0.9,
+            accepts_dopamine_from=[AREA_NAME_DISTORTION]
         )
 
         self.container.add_connection(source=self.distance_receptive_area, target=self.distance)
+
+        self.distance_change_receptive_area = SpatialReceptiveArea.add(
+            name='distance change receptive',
+            agent=self.agent,
+            zone=self,
+            output_space_size=100
+        )
+
+        self.distance_change = EncoderArea.add(
+            name=AREA_NAME_DISTANCE_CHANGE,
+            agent=self.agent,
+            zone=self,
+            min_inputs=1,
+            surprise_level=0,
+            accepts_dopamine_from=[AREA_NAME_DISTORTION]
+        )
+        self.container.add_connection(source=self.distance_change_receptive_area, target=self.distance_change)
 
     def activate_on_body(self, body_data, prev_body_data, data):
         body_shape_distorted = self._body_shape_distorted(data)
@@ -127,11 +156,14 @@ class VisualRecognitionZone(NeuralZone):
         self.body_distortion.activate_on_body(body_shape_distorted)
 
         if body_data['name'] != 'hand':
+            self._activate_velocity(body_data)
             self._activate_eye_shift_areas(body_data, prev_body_data)
+
         self.primitives_receptive_area.activate_on_body(body_data['general_presentation'], body_data['name'])
 
-        self._activate_velocity(body_data)
         self._activate_eye_shift_distance_area(body_data, prev_body_data)
+
+        self._activate_eye_shift_distance_change_area(body_data, prev_body_data)
 
     def _activate_velocity(self, body_data):
         max_velocity = 5
@@ -152,7 +184,7 @@ class VisualRecognitionZone(NeuralZone):
         self.velocity_down.activate_on_body(velocity_down)
 
     def _body_shape_distorted(self, data):
-        threshold = 25
+        threshold = 20
         there_is_circle = False
         hand_data = [d for d in data if d['name'] == 'hand'][0]
         for body_data in data:
@@ -231,6 +263,36 @@ class VisualRecognitionZone(NeuralZone):
         distance = int(math.sqrt(shift_x ** 2 + shift_y ** 2))
         distance = distance / distance_norm
         self.distance_receptive_area.activate_on_body(distance)
+
+    def _activate_eye_shift_distance_change_area(self, body_data, prev_body_data):
+
+        if prev_body_data:
+            shift_x = body_data['center'][0] - prev_body_data['center'][0]
+            shift_y = body_data['center'][1] - prev_body_data['center'][1]
+        else:
+            return
+
+        body_name = body_data['name']
+        if body_name == 'hand':
+            body_name = prev_body_data['name']
+
+        distance = int(math.sqrt(shift_x ** 2 + shift_y ** 2))
+        if distance > 1000:
+            return
+
+        if body_name in self.distance_to_bodies:
+            prev_distance = self.distance_to_bodies[body_name]
+        else:
+            prev_distance = 10000000
+
+        if distance < prev_distance:
+            value = 1
+        elif distance == prev_distance:
+            value = 0.5
+        else:
+            value = 0
+        self.distance_to_bodies[body_name] = distance
+        self.distance_change_receptive_area.activate_on_body(value)
 
     def on_area_updated(self, area: NeuralArea):
         if area == self.velocity and area.output:

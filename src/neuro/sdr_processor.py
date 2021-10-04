@@ -13,20 +13,11 @@ class SDRProcessor:
 
     def process_input(self, pattern: NeuralPattern) -> NeuralPattern:
         output, connections = self._get_raw_output(pattern)
-        # output_pattern = None
-        # for attempted_pattern in self.area.patterns:
-        #     if self.patterns_similar(attempted_pattern, output):
-        #         output_pattern = attempted_pattern
-        #         break
-        # pattern_is_new = False
-        # if not output_pattern:
-        #     pattern_is_new = True
-        #     output_pattern = NeuralPattern(self.area.output_space_size, value=output)
-        #     self.area.patterns.append(output_pattern)
-        #     self.area.highway_connections.update(connections)
-        # return output_pattern, pattern_is_new
-        output_pattern = NeuralPattern.find_or_create(self.area.output_space_size, value=output)
-        # self.area.patterns.append(output_pattern)
+        output_pattern = NeuralPattern.find_or_create(
+            self.area.output_space_size,
+            value=output,
+            source_area=self.area
+        )
         self.area.highway_connections.update(connections)
         return output_pattern
 
@@ -102,13 +93,13 @@ class SDRProcessor:
         combined_input_indices = []
         combined_input_data = {}
         combined_pattern = None
-        histories = []
+        alive_patterns = []
         shift = 0
         for i in range(len(inputs)):
             cur_input = inputs[i]
             if cur_input:
                 combined_input_indices.extend([idx + shift for idx in cur_input.value])
-                histories.append(cur_input.history)
+                alive_patterns.append(cur_input)
                 if cur_input.data:
                     for key in cur_input.data:
                         combined_input_data[key] = cur_input.data[key]
@@ -120,6 +111,7 @@ class SDRProcessor:
                 value=combined_input_indices,
                 data=combined_input_data
             )
-            combined_pattern.merge_histories(histories)
+            # combined_pattern.merge_histories(histories)
+            combined_pattern.source_patterns = alive_patterns
         return combined_pattern
 

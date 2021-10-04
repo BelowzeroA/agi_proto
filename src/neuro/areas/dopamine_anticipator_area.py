@@ -1,5 +1,6 @@
 from typing import List, Dict
 
+from neuro.dopamine_portion import DopaminePortion
 from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
@@ -129,37 +130,44 @@ class DopamineAnticipatorArea(NeuralArea):
                 pe.set_value(pe.value - 1)
                 pe.control_tick = 0
 
-    def receive_dope(self, dope_value: int, self_induced=False):
+    def receive_dope(self, dopamine_portions: List[DopaminePortion], self_induced=False):
         current_tick = self.agent.network.current_tick
         # untrace the traced patterns
         for pe in self.pattern_energies:
-            if pe.control_tick and pe.control_tick < current_tick + TRACE_INTERVAL and pe.value <= dope_value:
-                pe.control_tick = 0
+            for portion in dopamine_portions:
+                if pe.control_tick and pe.control_tick < current_tick + TRACE_INTERVAL and \
+                        pe.pattern.accepts_dopamine(portion) and pe.value <= portion.value:
+                    pe.control_tick = 0
 
-        if dope_value < 2:
-            return
+        for portion in dopamine_portions:
+            dope_value = portion.value
+            if dope_value < 2:
+                continue
         
-        processed_input_patterns = []
-        start_tick = current_tick - 4 if self_induced else current_tick - 8
-        for causing_tick in range(start_tick, current_tick - 2):
-            if causing_tick in self.history:
-                patterns = self.history[causing_tick]
-                for pattern in patterns:
-                    if pattern not in processed_input_patterns:
-                        energy_recs = [pe for pe in self.pattern_energies if pe.pattern == pattern]
-                        if energy_recs:
-                            energy_rec = energy_recs[0]
-                            energy_rec.set_value(dope_value)
-                            if not self_induced:
-                                energy_rec.energy = 1.0
-                        else:
-                            energy_rec = PatternDopeEnergy(
-                                pattern=pattern,
-                                value=dope_value,
-                                tick=causing_tick,
-                            )
-                            self.pattern_energies.append(energy_rec)
-                        processed_input_patterns.append(pattern)
+            processed_input_patterns = []
+            start_tick = current_tick - 4 if self_induced else current_tick - 8
+            for causing_tick in range(start_tick, current_tick - 2):
+                if causing_tick in self.history:
+                    patterns = self.history[causing_tick]
+                    for pattern in patterns:
+                        if pattern not in processed_input_patterns and pattern.accepts_dopamine(portion):
+                            energy_recs = [pe for pe in self.pattern_energies if pe.pattern == pattern]
+                            if energy_recs:
+                                energy_rec = energy_recs[0]
+                                energy_rec.set_value(dope_value)
+                                if not self_induced:
+                                    energy_rec.energy = 1.0
+                            else:
+                                energy_rec = PatternDopeEnergy(
+                                    pattern=pattern,
+                                    value=dope_value,
+                                    tick=causing_tick,
+                                )
+                                self.pattern_energies.append(energy_rec)
+                            processed_input_patterns.append(pattern)
+
+    def receive_inputs(self, input_patterns: List[NeuralPattern]):
+        self.inputs = input_patterns
 
 
 

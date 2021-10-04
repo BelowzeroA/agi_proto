@@ -38,3 +38,9 @@ class Container:
                        c.source == connection.source and c.target == connection.target]
         assert len(connections) == 0, f'Connection between {connection.source} and {connection.target} already exists'
         self.pattern_connections.append(connection)
+
+    def get_area_by_name(self, name: str):
+        selected = [area for area in self.areas if area.name == name]
+        if len(selected) == 0:
+            raise AttributeError(f'No area named "{name}"')
+        return selected[0]

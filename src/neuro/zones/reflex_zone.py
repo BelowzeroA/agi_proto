@@ -1,6 +1,8 @@
 from neuro.areas.dopamine_anticipator_area import DopamineAnticipatorArea
 from neuro.areas.dopamine_predictor_area import DopaminePredictorArea
 from neuro.areas.reflex_area import ReflexArea
+from neuro.areas.reflex_grab_area import ReflexGrabArea
+from neuro.areas.reflex_move_area import ReflexMoveArea
 from neuro.neural_zone import NeuralZone
 from neuro.patterns_combiner import PatternsCombiner
 from neuro.zones.motor_zone import MotorZone
@@ -30,13 +32,23 @@ class ReflexZone(NeuralZone):
                 zone=self,
             )
 
-            reflex_area = ReflexArea.add(
-                name=f'Reflex: {action_area.action_id}',
-                agent=self.agent,
-                zone=self,
-                action_area=action_area,
-                dopamine_predictor=dopamine_predictor,
-            )
+            if action_area.action_id == 'move':
+                reflex_area = ReflexMoveArea.add(
+                    name=f'Reflex: {action_area.action_id}',
+                    agent=self.agent,
+                    zone=self,
+                    action_area=action_area,
+                    dopamine_predictor=dopamine_predictor,
+                )
+            elif action_area.action_id == 'grab':
+                reflex_area = ReflexGrabArea.add(
+                    name=f'Reflex: {action_area.action_id}',
+                    agent=self.agent,
+                    zone=self,
+                    action_area=action_area,
+                    dopamine_predictor=dopamine_predictor,
+                )
+
             self.container.add_connection(
                 source=reflex_area,
                 target=action_area,
@@ -56,6 +68,11 @@ class ReflexZone(NeuralZone):
 
         self.container.add_connection(
             source=self.vr_zone.distance,
+            target=self.combiner,
+        )
+
+        self.container.add_connection(
+            source=self.vr_zone.distance_change,
             target=self.combiner,
         )
 
@@ -79,6 +96,8 @@ class ReflexZone(NeuralZone):
         self.combiner.combine_transfer()
 
     def on_step_end(self):
+        # Not implemented for dopamine portions mode
+        return
         # Spread dopamine-induced excitation across all the reflex areas
         if self.accumulated_dope:
             for area in self.areas:

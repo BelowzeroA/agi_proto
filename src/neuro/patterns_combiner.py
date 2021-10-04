@@ -26,15 +26,17 @@ class PatternsCombiner(NeuralArea):
 
         patterns = []
         for combination in combinations:
-            if len(combination) > 1:
+            if 3 > len(combination) > 1:
                 input_sizes = [p.space_size for p in combination]
                 pattern = SDRProcessor.make_combined_pattern(combination, input_sizes)
-            else:
+            elif len(combination) == 1:
                 pattern = combination[0]
+            else:
+                continue
             patterns.append(pattern)
 
         for area in self.output_areas:
-            area.inputs = patterns
+            area.receive_inputs(patterns)
 
         self.reset_inputs()
 

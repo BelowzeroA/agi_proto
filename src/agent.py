@@ -4,6 +4,7 @@ import random
 from common.logger import Logger
 from common.timer import Timer
 from neuro.container import Container
+from neuro.dopamine_portion import DopaminePortion
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
 from neuro.zones.motor_zone import MotorZone
@@ -18,6 +19,7 @@ ROOM_HEIGHT = 480
 MAX_ATTENTION_DISTANCE = 500
 ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down', 'grab']
 MACRO_ACTIONS = ['move', 'grab']
+
 ATTENTION_SPAN = 5
 
 log_path = os.path.join(path_from_root('logs'), 'log.txt')
@@ -33,7 +35,7 @@ class Agent:
         self.logger = Logger(self, log_path)
         self.focused_body_idx = None
         self.surprise = 0
-        self.surprise_history = {}
+        self.dopamine_flow = {}
         self.actions = {a: 0 for a in ACTIONS}
         self.attended_location_pattern = None
         self.attention_strategy = 'loop'
@@ -65,18 +67,26 @@ class Agent:
         current_tick = self.network.current_tick
         message = data['message']
         if message == 'pattern_created':
+
             self.surprise += data['surprise_level']
-            if current_tick not in self.surprise_history:
-                self.surprise_history[current_tick] = []
-            self.surprise_history[current_tick].append(data)
+            if current_tick not in self.dopamine_flow:
+                self.dopamine_flow[current_tick] = []
+            self.dopamine_flow[current_tick].append(DopaminePortion(data['surprise_level'], data['area']))
+
         elif message == 'hand_move':
+
             self.actions[data['action_id']] = data['action_value']
+
         elif message == 'attention-strategy':
+
             if data['strategy'] == 'focus':
                 self.attention_strategy = 'focus'
                 self.last_motion_tick = current_tick
+
         elif message == 'attention-location':
+
             self.attention_spot = data['location']
+
         else:
             raise AttributeError(f'Unrecognized message: {message}')
 
@@ -243,6 +253,12 @@ class Agent:
         body_name = attended_body['name']
         if body_name in self.body_cache:
             attended_body['general_presentation'] = self.body_cache[body_name]
+
+        if prev_attended_body and prev_attended_body['name'] == 'hand':
+            prev_attended_body = hand
+
+        if attended_body and attended_body['name'] == 'hand':
+            attended_body = hand
 
         self._serial_activate_on_body(attended_body, prev_attended_body, packet)
 

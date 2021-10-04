@@ -1,3 +1,6 @@
+from typing import List
+
+from neuro.dopamine_portion import DopaminePortion
 from neuro.neural_pattern import NeuralPattern
 
 
@@ -26,8 +29,11 @@ class NeuralArea:
     def reset_output(self):
         pass
 
-    def receive_dope(self, dope_value: int, self_induced=False):
+    def receive_dope(self, dopamine_portions: List[DopaminePortion], self_induced=False):
         pass
+
+    def accepts_dopamine_from(self, area: 'NeuralArea'):
+        raise NotImplementedError('accepts_dopamine_from() must be implemented')
 
     def update(self):
         self.zone.on_area_updated(self)

@@ -1,12 +1,13 @@
 from typing import List, Dict
 
+from neuro.dopamine_portion import DopaminePortion
 from neuro.hyper_params import HyperParameters
 from neuro.neural_area import NeuralArea
 from neuro.neural_pattern import NeuralPattern
 from neuro.patterns_connection import PatternsConnection
 
 
-TRACE_INTERVAL = 15 * HyperParameters.network_steps_per_env_step
+TRACE_INTERVAL = 20 * HyperParameters.network_steps_per_env_step
 
 
 class TracedConnection:
@@ -48,15 +49,16 @@ class DopaminePredictorArea(NeuralArea):
         self.traced_connections.append(traced_connection)
         self.agent.logger.write_content(f'starting to trace {connection}')
 
-    def receive_dope(self, dope_value: int, self_induced=False):
-        if dope_value < 2:
-            return
+    def receive_dope(self, dopamine_portions: List[DopaminePortion], self_induced=False):
+        # if dope_value < 2:
+        #     return
         current_tick = self.container.network.current_tick
         for tc in self.traced_connections:
             if tc.updated:
                 continue
-            if tc.start_tick < current_tick <= tc.control_tick:
-                tc.accumulated_dope += dope_value
+            for portion in dopamine_portions:
+                if tc.start_tick < current_tick <= tc.control_tick and tc.connection.area.accepts_dopamine(portion):
+                    tc.accumulated_dope += portion.value
 
 
 

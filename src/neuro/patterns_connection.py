@@ -9,7 +9,7 @@ class PatternsConnection:
                  source: NeuralPattern,
                  target: NeuralPattern,
                  agent,
-                 area_name,
+                 area,
                  tick: int = 0,
                  weight: float = 1.0,
                  dope_value: int = 0,
@@ -19,7 +19,7 @@ class PatternsConnection:
         self.weight = weight
         self.agent = agent
         self.tick = tick
-        self.area_name = area_name
+        self.area = area
         self.dope_value = dope_value
         global GLOBAL_COUNTER
         self._id = GLOBAL_COUNTER
@@ -40,7 +40,7 @@ class PatternsConnection:
         self.weight = max(0.1, self.weight)
 
     def _repr(self):
-        return f'({self._id}) {self.area_name} val={self.target.data} source={self.source}'
+        return f'({self._id}) {self.area.name} val={self.target.data} source={self.source}'
 
     def __repr__(self):
         return self._repr()

@@ -1,12 +1,14 @@
 import random
 
+from neuro.dopamine_portion import DopaminePortion
+
 GLOBAL_COUNTER = 0
 all_patterns = []
 
 
 class NeuralPattern:
 
-    def __init__(self, space_size: int, value_size: int = 0, value=None, data=None):
+    def __init__(self, space_size: int, value_size: int = 0, value=None, data=None, source_area=None):
         global GLOBAL_COUNTER, all_patterns
         if value:
             self.value = value
@@ -16,6 +18,7 @@ class NeuralPattern:
             self.value_size = value_size
         self.data = data
         self.source_patterns = []
+        self.source_area = source_area
         self.space_size = space_size
         self.history = {}
         self._id = GLOBAL_COUNTER
@@ -23,7 +26,7 @@ class NeuralPattern:
         all_patterns.append(self)
 
     @classmethod
-    def find_or_create(cls, space_size: int, value_size: int = 0, value=None, data=None):
+    def find_or_create(cls, space_size: int, value_size: int = 0, value=None, data=None, source_area=None):
         global all_patterns
 
         if value:
@@ -33,7 +36,7 @@ class NeuralPattern:
                 intersection = set(value) & set(pattern.value)
                 if len(intersection) == len(value):
                     return pattern
-        return cls(space_size=space_size, value_size=value_size, value=value, data=data)
+        return cls(space_size=space_size, value_size=value_size, value=value, data=data, source_area=source_area)
 
     def __eq__(self, other):
         if self.value_size != other.value_size or self.space_size != other.space_size:
@@ -69,6 +72,15 @@ class NeuralPattern:
                     if tick not in self.history:
                         self.history[tick] = []
                     self.history[tick].append(history[tick])
+
+    def accepts_dopamine(self, portion: DopaminePortion) -> bool:
+        if self.source_area:
+            return self.source_area.accepts_dopamine_from(portion.source)
+        else:
+            for pattern in self.source_patterns:
+                if pattern.source_area.accepts_dopamine_from(portion.source):
+                    return True
+            return False
 
     def _repr0(self):
         if self.data is not None:

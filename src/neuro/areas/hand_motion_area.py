@@ -74,14 +74,22 @@ class HandMotionArea(ActionArea):
     def _generate_action_patterns(self):
         if self.name == 'Action: move':
             for data in self._get_motion_patterns():
-                pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
+                pattern = NeuralPattern(
+                    space_size=self.output_space_size,
+                    value_size=self.output_norm,
+                    source_area=self
+                )
                 pattern.generate_random()
                 pattern.data = data
                 self.patterns.append(pattern)
 
         elif self.name == 'Action: grab':
             for data in GRAB_ACTION_SPACE:
-                pattern = NeuralPattern(space_size=self.output_space_size, value_size=self.output_norm)
+                pattern = NeuralPattern(
+                    space_size=self.output_space_size,
+                    value_size=self.output_norm,
+                    source_area=self,
+                )
                 pattern.generate_random()
                 pattern.data = data
                 self.patterns.append(pattern)

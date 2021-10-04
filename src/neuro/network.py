@@ -22,9 +22,9 @@ class Network:
         for connection in self.container.connections:
             connection.update()
 
-        if self.agent.surprise:
+        if self.current_tick in self.agent.dopamine_flow:
             for zone in self.container.zones:
-                zone.spread_dope(self.agent.surprise)
+                zone.spread_dope(self.agent.dopamine_flow[self.current_tick])
 
         for zone in self.container.zones:
             zone.on_step_end()

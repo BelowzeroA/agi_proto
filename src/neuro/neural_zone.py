@@ -1,3 +1,7 @@
+from typing import List
+
+from neuro.dopamine_portion import DopaminePortion
+
 
 class NeuralZone:
     """
@@ -18,9 +22,9 @@ class NeuralZone:
     def get_areas(self):
         return self.areas
 
-    def spread_dope(self, dope_value: int):
+    def spread_dope(self, dopamine_portions: List[DopaminePortion]):
         for area in self.areas:
-            area.receive_dope(dope_value, self_induced=False)
+            area.receive_dope(dopamine_portions, self_induced=False)
 
     def on_area_updated(self, area):
         pass

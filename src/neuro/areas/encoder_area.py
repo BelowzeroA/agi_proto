@@ -21,6 +21,7 @@ class EncoderArea(NeuralArea):
             recognition_threshold=None,
             convey_new_pattern=False,
             cached_output_num_ticks=0,
+            accepts_dopamine_from=None,
     ):
         super().__init__(name=name, agent=agent, zone=zone)
         self.output_space_size = output_space_size or HyperParameters.encoder_space_size
@@ -38,9 +39,24 @@ class EncoderArea(NeuralArea):
         self.cached_output_num_ticks = cached_output_num_ticks
         self._cached_output = None
         self._cached_output_start_tick = 0
+        self._accepts_dopamine_from = accepts_dopamine_from
+        self._accepts_dopamine_from_is_synchronized = False
+
+    def _sync_accepts_dopamine_from(self):
+        if self._accepts_dopamine_from and not self._accepts_dopamine_from_is_synchronized:
+            for item in self._accepts_dopamine_from:
+                if item == 'self':
+                    self._accepts_dopamine_from.append(self)
+                elif isinstance(item, str):
+                    self._accepts_dopamine_from.append(self.container.get_area_by_name(item))
+            self._accepts_dopamine_from_is_synchronized = True
 
     def update(self):
+
+        self._sync_accepts_dopamine_from()
+
         current_tick = self.agent.network.current_tick
+
         self.output = None
         alive_inputs = len([pattern for pattern in self.inputs if pattern])
         if alive_inputs < self.min_inputs:
@@ -136,8 +152,11 @@ class EncoderArea(NeuralArea):
             target=output_pattern,
             agent=self.agent,
             tick=self.agent.network.current_tick,
-            area_name=self.name
+            area=self
         )
         self.pattern_connections.append(connection)
 
         return output_pattern, True
+
+    def accepts_dopamine_from(self, area: NeuralArea):
+        return area in self._accepts_dopamine_from
