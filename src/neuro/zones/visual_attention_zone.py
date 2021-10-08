@@ -7,7 +7,9 @@ from neuro.neural_zone import NeuralZone
 
 
 class VisualAttentionZone(NeuralZone):
-
+    """
+    Manages the attention system
+    """
     def __init__(self, name: str, agent):
         super().__init__(name, agent)
         self.attention_locations = {}
@@ -42,25 +44,6 @@ class VisualAttentionZone(NeuralZone):
 
         self.container.add_connection(source=self.attention_location_horizontal, target=self.attention_location)
         self.container.add_connection(source=self.attention_location_vertical, target=self.attention_location)
-
-        # self.velocity_left = SpatialReceptiveArea.add(name='velocity-left', agent=self.agent, zone=self, grid_size=10)
-        # self.velocity_right = SpatialReceptiveArea.add(name='velocity-right', agent=self.agent, zone=self, grid_size=10)
-        # self.velocity_up = SpatialReceptiveArea.add(name='velocity-up', agent=self.agent, zone=self, grid_size=10)
-        # self.velocity_down = SpatialReceptiveArea.add(name='velocity-down', agent=self.agent, zone=self, grid_size=10)
-        #
-        # self.velocity = EncoderArea.add(
-        #     name='velocity',
-        #     agent=self.agent,
-        #     zone=self,
-        #     output_space_size=HyperParameters.encoder_space_size,
-        #     output_norm=HyperParameters.encoder_norm,
-        #     min_inputs=1
-        # )
-        #
-        # self.container.add_connection(source=self.velocity_left, target=self.velocity)
-        # self.container.add_connection(source=self.velocity_right, target=self.velocity)
-        # self.container.add_connection(source=self.velocity_up, target=self.velocity)
-        # self.container.add_connection(source=self.velocity_down, target=self.velocity)
 
         self._add_working_memory()
 

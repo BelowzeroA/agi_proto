@@ -8,7 +8,9 @@ from neuro.sdr_processor import SDRProcessor
 
 
 class EncoderArea(NeuralArea):
-
+    """
+    Converts a low level perceptive pattern to a sparse pattern
+    """
     def __init__(
             self,
             name: str,
@@ -62,7 +64,7 @@ class EncoderArea(NeuralArea):
         if alive_inputs < self.min_inputs:
             self.reset_inputs()
             if self.cached_output_num_ticks > 0 and self._cached_output and \
-                current_tick - self._cached_output_start_tick < self.cached_output_num_ticks:
+                    current_tick - self._cached_output_start_tick < self.cached_output_num_ticks:
                 self.output = self._cached_output
                 self.history[current_tick] = self.output
             return

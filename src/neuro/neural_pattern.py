@@ -7,7 +7,11 @@ all_patterns = []
 
 
 class NeuralPattern:
-
+    """
+    The basic unit of information for the neural system
+    Patterns might represent body shapes, locations, velocity, distance, actions etc.
+    Also patterns can merge making up a combined pattern
+    """
     def __init__(self, space_size: int, value_size: int = 0, value=None, data=None, source_area=None):
         global GLOBAL_COUNTER, all_patterns
         if value:

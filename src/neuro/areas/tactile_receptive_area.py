@@ -4,7 +4,9 @@ from neuro.sdr_processor import SDRProcessor
 
 
 class TactileReceptiveArea(ReceptiveArea):
-
+    """
+    Encodes tactile observations
+    """
     def __init__(self, name: str, agent, zone):
         super().__init__(name, agent, zone)
         self.output_space_size = 200

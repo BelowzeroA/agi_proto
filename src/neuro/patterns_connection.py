@@ -4,7 +4,10 @@ GLOBAL_COUNTER = 0
 
 
 class PatternsConnection:
-
+    """
+    Connection between two patterns. According to the mainstream neuroscientific doctrine, firing a source pattern
+    makes the target pattern to fire in response if they are connected
+    """
     def __init__(self,
                  source: NeuralPattern,
                  target: NeuralPattern,

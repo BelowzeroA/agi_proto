@@ -9,7 +9,9 @@ NEURAL_SPACE_SIZE = len(ANGLE_MARGINS) * 3 * NUM_SECTORS
 
 
 class PrimitivesReceptiveArea(ReceptiveArea):
-
+    """
+    A receptive area for body shapes
+    """
     def __init__(self, name: str, agent, zone):
         super().__init__(name, agent, zone)
         self.output_space_size = NEURAL_SPACE_SIZE

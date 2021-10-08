@@ -49,7 +49,10 @@ class PatternBurstChain:
 
 
 class DopamineAnticipatorArea(NeuralArea):
-
+    """
+    Manages pattern-induced dopamine flow.
+    According to neuroscience, dopaminergetic neurons exude dopamine to provide a teaching signal to nearby areas
+    """
     def __init__(
             self,
             name: str,

@@ -6,7 +6,9 @@ from neuro.neural_pattern import NeuralPattern
 
 
 class ReceptiveArea(NeuralArea):
-
+    """
+    Abstract receptive area
+    """
     def __init__(
             self,
             name: str,

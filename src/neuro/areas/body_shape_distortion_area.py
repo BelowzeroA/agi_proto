@@ -5,7 +5,9 @@ from neuro.hyper_params import HyperParameters
 
 
 class BodyShapeDistortionArea(ReceptiveArea):
-
+    """
+    Detects if attended body perceived shape is distorted by the agent's hand occlusion
+    """
     def __init__(
             self,
             name: str,

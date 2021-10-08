@@ -7,7 +7,9 @@ from neuro.neural_pattern import NeuralPattern
 
 
 class SpatialReceptiveArea(ReceptiveArea):
-
+    """
+    Encodes continuous values such as distance, speed, etc.
+    """
     def __init__(
             self,
             name: str,

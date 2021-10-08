@@ -7,7 +7,10 @@ from neuro.neural_pattern import NeuralPattern
 
 
 class SDRProcessor:
-
+    """
+    Sparse distributed representations engine. Makes a sparse pattern out of the dense pattern
+    Implements pattern recognition
+    """
     def __init__(self, area: 'EncoderArea'):
         self.area = area
 

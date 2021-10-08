@@ -1,19 +1,14 @@
-import math
-
-from neuro.areas.body_shape_distortion_area import BodyShapeDistortionArea
 from neuro.areas.encoder_area import EncoderArea
-from neuro.areas.primitives_receptive_area import PrimitivesReceptiveArea
-from neuro.areas.spatial_receptive_area import SpatialReceptiveArea
 from neuro.areas.tactile_receptive_area import TactileReceptiveArea
-from neuro.hyper_params import HyperParameters
-from neuro.neural_area import NeuralArea
 from neuro.neural_zone import NeuralZone
 
 AREA_NAME_TOUCH = 'touch'
 
 
 class TactileZone(NeuralZone):
-
+    """
+    Manages the areas related to tactile perception
+    """
     def __init__(self, name: str, agent):
         super().__init__(name, agent)
         self._build_areas()

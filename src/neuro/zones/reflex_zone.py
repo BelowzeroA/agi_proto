@@ -11,7 +11,9 @@ from neuro.zones.visual_recognition_zone import VisualRecognitionZone
 
 
 class ReflexZone(NeuralZone):
-
+    """
+    Manages the reflex areas and the areas related to the dopamine flow system
+    """
     def __init__(self, name: str, agent, motor_zone: MotorZone, vr_zone: VisualRecognitionZone, ta_zone: TactileZone):
         super().__init__(name, agent)
         self.accumulated_dope = 0

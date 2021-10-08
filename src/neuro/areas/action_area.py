@@ -5,7 +5,9 @@ from neuro.neural_pattern import NeuralPattern
 
 
 class ActionArea(NeuralArea):
-
+    """
+    Abstract class for actions
+    """
     def __init__(
             self,
             name: str,

@@ -8,7 +8,9 @@ from neuro.zones.visual_recognition_zone import AREA_NAME_DISTANCE
 
 
 class ReflexGrabArea(ReflexArea):
-
+    """
+    Specialized area for grabbing reflexes
+    """
     def __init__(
             self,
             name: str,

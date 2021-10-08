@@ -15,7 +15,9 @@ ACTION_LONGEVITY = 8 * HyperParameters.network_steps_per_env_step
 
 
 class ReflexArea(NeuralArea):
-
+    """
+    Performs creating and managing connections between receptive patterns and actions, i.e. reflexes
+    """
     def __init__(
             self,
             name: str,

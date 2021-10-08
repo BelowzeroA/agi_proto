@@ -5,7 +5,9 @@ from neuro.sdr_processor import SDRProcessor
 
 
 class PatternsCombiner(NeuralArea):
-
+    """
+    A special kind of neural area that makes combinations of input patterns
+    """
     def __init__(self, agent):
         self.agent = agent
         self.output_areas = []

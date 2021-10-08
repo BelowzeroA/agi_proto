@@ -3,7 +3,10 @@ from neuro.container import Container
 
 
 class Network:
-
+    """
+    Cyclically updates the state of neural zones and areas on each step
+    Also broadcasts dopamine across neural zones
+    """
     def __init__(self, container: Container, agent: 'Agent'):
         self.container = container
         self.agent = agent
@@ -39,6 +42,11 @@ class Network:
             area.reset_output()
 
     def run(self, max_iter=100):
+        """
+        Main network loop
+        :param max_iter: how many iterations to perform
+        :return:
+        """
         self.current_tick = 1
         while self.current_tick <= max_iter:
             self._step_impl()

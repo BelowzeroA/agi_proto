@@ -18,7 +18,9 @@ AREA_NAME_DISTANCE_CHANGE = 'distance change'
 
 
 class VisualRecognitionZone(NeuralZone):
-
+    """
+    Manages the areas related to visual perception
+    """
     def __init__(self, name: str, agent):
         super().__init__(name, agent)
         self.distance_to_bodies = {}

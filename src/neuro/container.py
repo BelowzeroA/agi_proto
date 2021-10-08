@@ -8,7 +8,9 @@ from neuro.patterns_connection import PatternsConnection
 
 
 class Container:
-
+    """
+    Contains neural zones, areas and connections between areas i.e. connectome
+    """
     def __init__(self):
         self.network = None
         self.areas = []

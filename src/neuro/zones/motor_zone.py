@@ -3,7 +3,9 @@ from neuro.neural_zone import NeuralZone
 
 
 class MotorZone(NeuralZone):
-
+    """
+    Inventory of all the actions of an agent. Actions can be either movements or palm clenching
+    """
     def __init__(self, name: str, agent):
         super().__init__(name, agent)
         self._build_areas()

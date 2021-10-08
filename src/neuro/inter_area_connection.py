@@ -2,7 +2,9 @@ from neuro.neural_area import NeuralArea
 
 
 class InterAreaConnection:
-
+    """
+    genetically determined connection between neural areas
+    """
     def __init__(self, source: NeuralArea, target: NeuralArea):
         self.source = source
         self.target = target

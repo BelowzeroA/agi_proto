@@ -20,7 +20,9 @@ class TracedConnection:
 
 
 class DopaminePredictorArea(NeuralArea):
-
+    """
+    Increases or decreases dope-induced pattern connection weights.
+    """
     def __init__(
             self,
             name: str,

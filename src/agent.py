@@ -26,7 +26,10 @@ log_path = os.path.join(path_from_root('logs'), 'log.txt')
 
 
 class Agent:
-
+    """
+    AGI agent is trying to adapt to the environment by observing it's state
+    and learning useful reflexes to maximize dopamine
+    """
     def __init__(self):
         random.seed(0)
         self.container = Container()

@@ -8,7 +8,9 @@ from neuro.zones.visual_recognition_zone import AREA_NAME_VELOCITY, AREA_NAME_BO
 
 
 class ReflexMoveArea(ReflexArea):
-
+    """
+    Specialized area for movement reflexes
+    """
     def __init__(
             self,
             name: str,

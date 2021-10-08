@@ -2,7 +2,9 @@ from neuro.neural_area import NeuralArea
 
 
 class WorkingMemoryCell(NeuralArea):
-
+    """
+    A placeholder for the working memory machinery
+    """
     def __init__(self, name: str, agent, zone):
         super().__init__(name, agent, zone)
         self.intensity = 0

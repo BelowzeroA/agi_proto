@@ -10,7 +10,9 @@ ACTION_LONGEVITY = 8
 
 
 class HandMotionArea(ActionArea):
-
+    """
+    Outputs the action to an agent. Actions can be either movements or palm clenching
+    """
     def __init__(
             self,
             name: str,
