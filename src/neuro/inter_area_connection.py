@@ -3,18 +3,26 @@ from neuro.neural_area import NeuralArea
 
 class InterAreaConnection:
     """
-    genetically determined connection between neural areas
+    Genetically determined connection between neural areas
     """
-    def __init__(self, source: NeuralArea, target: NeuralArea):
+    def __init__(self, source: NeuralArea, target: NeuralArea, source_output_property: str = None):
         self.source = source
         self.target = target
         self.is_open = True
         self.target_slot_index = None
+        self.source_output_property = source_output_property
 
     def update(self):
-        if self.is_open:
-            if self.source.output:
-                self.target.inputs[self.target_slot_index] = self.source.output
+        if not self.is_open:
+            return
+
+        if self.source_output_property:
+            output = getattr(self.source, self.source_output_property)
+        else:
+            output = self.source.output
+
+        if output:
+            self.target.inputs[self.target_slot_index] = output
 
     def on_adding(self):
         self.target_slot_index = len(self.target.inputs)

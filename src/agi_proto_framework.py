@@ -19,6 +19,7 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import os
+import time
 from argparse import ArgumentParser
 
 import pygame
@@ -45,7 +46,7 @@ agent = Agent()
 
 
 try:
-    from .pygame_gui import (fwGUI, gui)
+    from backends.pygame_gui import (fwGUI, gui)
     GUIEnabled = True
 except Exception as ex:
     print('Unable to load PGU; menu disabled.')
@@ -116,8 +117,7 @@ class CustomDraw(Box2D.examples.backends.pygame_framework.PygameDraw):
         else:
             radius = int(radius)
 
-        pygame.draw.circle(self.surface, color,
-                           center, radius - 3, 0)
+        pygame.draw.circle(self.surface, color, center, radius - 3, 0)
 
 
 class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
@@ -166,6 +166,12 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 else:
                     self.world.bodies[ind].linearVelocity[0] = 15
                 self.world.bodies[ind].linearVelocity[1] = 3
+
+    @staticmethod
+    def set_body_dynamics(body, gravity=0, velocity_x=0, velocity_y=0):
+        body.gravityScale = gravity
+        body.linearVelocity[0] = velocity_x
+        body.linearVelocity[1] = velocity_y
 
     def checkEvents(self):
         """
@@ -253,7 +259,6 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 if self.min_ind:
                     self.world.bodies[self.min_ind].worldCenter[1] -= 0.5 * k
 
-
         if bt[pygame.K_m]:
             rotation -= 5
             if self.min_ind:
@@ -266,16 +271,14 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                 self.world.bodies[self.min_ind].angle += 0.5
 
         if self.grab and self.min_ind and agent.actions['grab'] == 0:
-            self.world.bodies[self.min_ind].gravityScale = 1.0
-            self.world.bodies[self.min_ind].linearVelocity[0] = self.arm_step['right']
-            self.world.bodies[self.min_ind].linearVelocity[1] = self.arm_step['up']
+            body = self.world.bodies[self.min_ind]
+            self.set_body_dynamics(body, 1.0, self.arm_step['right'], self.arm_step['up'])
             self.min_ind = None
             self.grab = False
 
         if self.grab and self.min_ind and agent.actions['grab'] == 1:
-            self.world.bodies[self.min_ind].gravityScale = 0.0
-            self.world.bodies[self.min_ind].linearVelocity[0] = 0.0
-            self.world.bodies[self.min_ind].linearVelocity[1] = 0.0
+            body = self.world.bodies[self.min_ind]
+            self.set_body_dynamics(body)
 
         elif self.grab and not self.min_ind and agent.actions['grab'] == 0:
             self.grab = False
@@ -285,8 +288,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
             list_ind = []
             for ind in range(len(self.world.bodies)):
                 u = our_zoom(self.world.bodies[ind].worldCenter)
-                dist = (abs(self.hand_rect.center[0] - u[0]) +
-                        abs(self.hand_rect.center[1] - u[1]))
+                dist = (abs(self.hand_rect.center[0] - u[0]) + abs(self.hand_rect.center[1] - u[1]))
                 if dist < DISTANCE:
                     list_ind.append((ind, dist))
             if len(list_ind) > 0:
@@ -295,10 +297,8 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
                     if list_ind[self.min_ind][1] > list_ind[ind][1]:
                         self.min_ind = ind
                 self.min_ind = list_ind[self.min_ind][0]
-                self.world.bodies[self.min_ind].gravityScale = 0.0
-                self.world.bodies[self.min_ind].linearVelocity[0] = 0
-                self.world.bodies[self.min_ind].linearVelocity[1] = 0
-
+                body = self.world.bodies[self.min_ind]
+                self.set_body_dynamics(body)
 
         self.arm_step['right'] = right
         self.arm_step['up'] = up
@@ -373,8 +373,7 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
         self.world.renderer = None
 
 
-class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
-                          else CustomPygameFramework):
+class AgiProtoFramework(Box2D.examples.framework.FrameworkBase if SERVER else CustomPygameFramework):
     arm_step = {'right': 0, 'up': 0}
     # settings = sfwSettings
     if SERVER:
@@ -383,11 +382,10 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
     num_step = 0
     last_step = None
     last_data = None
-    print(os.environ)
-    agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1,
-                                                                          'y': -1}}
+    # print(os.environ)
+    agent_message = {'surprise': 0, 'current_tick': 0, 'attention-spot': {'x': -1, 'y': -1}}
 
-    name = "CollisionProcessing"
+    name = "AGI proto"
     description = "Keys: left = a, right = d, down = s, up = w, grab = q, throw = e"
     x_offset = -10
     y_offset = 10
@@ -409,7 +407,7 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
     ]
 
     def __init__(self):
-        super(CollisionProcessing, self).__init__()
+        super(AgiProtoFramework, self).__init__()
         self.using_contacts = True
 
         # Ground body
@@ -418,19 +416,28 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
             shapes=b2LoopShape(vertices=self.ground_vertices, )
         )
 
-        circle = b2FixtureDef(
+        self.current_tick = 0
+        self.init_circle(world)
+        self.init_triangle(world)
+        self.init_teacher(world)
+        # self.init_teacher2(world)
+
+    def init_circle(self, world):
+        fixture = b2FixtureDef(
             shape=b2CircleShape(radius=2),
             density=1,
             restitution=0.5
         )
 
-        world.CreateBody(
+        circle = world.CreateBody(
             type=b2_dynamicBody,
             position=(10, 2),
-            fixtures=circle,
+            fixtures=fixture,
             awake=True,
+            userData='circle'
         )
 
+    def init_triangle(self, world):
         vertices = [(0, 0), (-4, 0), (-2, 2), ]
         vertices = [(2 * x, 2 * y) for x, y in vertices]
         triangle = b2FixtureDef(
@@ -445,8 +452,27 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
             fixtures=triangle,
             gravityScale=1.0,
             awake=True,
+            userData='triangle'
         )
         triangle_left.My_color = (1, 1, 1)
+
+    def init_teacher(self, world):
+        triangle = b2FixtureDef(
+            # shape=b2PolygonShape(vertices=vertices),
+            shape=b2PolygonShape(box=(1.5, 1.5)),
+            density=10,
+            restitution=0.2
+        )
+        triangle.name = 'Teacher'
+        teacher = world.CreateBody(
+            type=b2_dynamicBody,
+            position=(self.x_offset + 20, 20),
+            fixtures=triangle,
+            gravityScale=0.0,
+            awake=True,
+            userData='Teacher'
+        )
+        teacher.My_color = (1, 2, 1)
 
     def Keyboard(self):
         right = 0
@@ -531,7 +557,6 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
                     self.hand_push = self.hand_push_l
                     self.push_near_object(val=25)
 
-
         if agent.actions['move_right']:
             k = 1 if agent.actions['move_right'] == 2 else 0.5
             right += 10 * k
@@ -594,12 +619,11 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
         }
 
     def Step(self, settings):
-        # We are going to destroy some bodies according to contact
-        # points. We must buffer the bodies that should be destroyed
-        # because they may belong to multiple contact points
-        self.world.bodies[-1].awake = True
-        self.world.bodies[-2].awake = True
-        if (not SERVER) and np.all(self.pixel_array != None):
+        for body in self.world.bodies:
+            if body.userData:
+                body.awake = True
+
+        if (not SERVER) and np.all(self.pixel_array is not None):
             img_processor = ImageProcessor(self.world, SERVER, self.pixel_array, arm_size=(
                 self.hand_rect.topleft[0],
                 self.hand_rect.topleft[1],
@@ -609,7 +633,9 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
             self.last_step = [obj['center'] for obj in self.cur_step]
             self.last_data = self.cur_step
             self.viewing_the_status()
+            # time.sleep(10)
             self.agent_message = agent.env_step(self.cur_step)
+            self.current_tick = self.agent_message['current_tick']
 
         elif SERVER:
             img_processor = ImageProcessor(self.world,
@@ -629,4 +655,4 @@ class CollisionProcessing(Box2D.examples.framework.FrameworkBase if SERVER
 
         self.num_step += 1
 
-        super(CollisionProcessing, self).Step(settings)
+        super(AgiProtoFramework, self).Step(settings)

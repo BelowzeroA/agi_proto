@@ -6,7 +6,8 @@ from sympy import Segment, Point, N
 import Box2D
 import shapely
 
-from .roi_analysis import RoiAnalysis
+from agent import Agent
+from cv.roi_analysis import RoiAnalysis
 
 ALPHA_LIST = [22.5 + a for a in [0, 45, 90, 135, 180, 225, 270, 315]]
 
@@ -303,6 +304,8 @@ class ImageProcessor(RoiAnalysis):
             obj_data['name'] = 'triangle'
         elif len(approx_contour) == 8:
             obj_data['name'] = 'circle'
+        elif world_body and world_body.userData:
+            obj_data['name'] = world_body.userData
         else:
             obj_data['name'] = 'hand'
         if arm_flag and arm_obj:
@@ -330,12 +333,15 @@ class ImageProcessor(RoiAnalysis):
         else:
             arm = self.hand_polygon + np.array([self.arm_size[0], self.arm_size[1]])
         if len(self.my_world.bodies) != 0:
-            for world_body in self.my_world.bodies:
+            for i, world_body in enumerate(self.my_world.bodies):
                 if len(world_body.fixtures) == 0:
                     continue
-                if type(world_body.fixtures[0].shape) == Box2D.b2CircleShape:
+                # if type(world_body.fixtures[0].shape) == Box2D.b2CircleShape:
+                if world_body.userData == 'circle':
                     approx_contour = self.get_approx_for_circle(world_body)
-                elif type(world_body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                # elif type(world_body.fixtures[0].shape) == Box2D.Box2D.b2PolygonShape:
+                # elif world_body.userData in ['triangle', 'Teacher']:
+                elif world_body.userData in ['triangle']:
                     approx_contour = self.get_approx_for_poly(world_body.fixtures[0].shape.vertices,
                                                               world_body.transform.angle,
                                                               world_body.transform.position)
@@ -379,6 +385,6 @@ class ImageProcessor(RoiAnalysis):
                 obj['offset'] = (0, 0)
         # cv.waitKey(0)
         # cv.destroyAllWindows()
-        if len(data) != 3:
+        if len(data) > Agent.MAX_BODIES_NUM:
             print(len(data))
         return data

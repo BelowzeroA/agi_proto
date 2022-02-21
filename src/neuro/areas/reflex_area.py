@@ -37,6 +37,8 @@ class ReflexArea(NeuralArea):
         self.pattern_start_tick = None
         self.connections: List[PatternsConnection] = []
         self.active_pattern = None
+        self.active_reflex: NeuralPattern = None
+        self.output_space_size = HyperParameters.encoder_space_size
         self.history = {}
         self.move_state = {}
         self.move_return = None
@@ -163,10 +165,12 @@ class ReflexArea(NeuralArea):
                     self.pattern_start_tick = current_tick
                     output = connection.target
                     self.active_pattern = output
+                    self.active_reflex = connection.pattern
             elif self.active_pattern:
                 output = self.active_pattern
 
         if not output:
+            self.active_reflex = None
             # Choosing a random action
             patterns = self.action_area.get_patterns()
             if self.pattern_start_tick is None or current_tick - self.pattern_start_tick > ACTION_LONGEVITY:

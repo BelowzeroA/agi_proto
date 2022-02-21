@@ -23,7 +23,6 @@ def main(test_class):
     test.run()
 
 
-
 if __name__ == "__main__":
-    from collision_processing import CollisionProcessing
-    main(CollisionProcessing)
+    from agi_proto_framework import AgiProtoFramework
+    main(AgiProtoFramework)

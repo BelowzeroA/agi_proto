@@ -1,3 +1,4 @@
+from neuro.hyper_params import HyperParameters
 from neuro.neural_pattern import NeuralPattern
 
 GLOBAL_COUNTER = 0
@@ -6,7 +7,7 @@ GLOBAL_COUNTER = 0
 class PatternsConnection:
     """
     Connection between two patterns. According to the mainstream neuroscientific doctrine, firing a source pattern
-    makes the target pattern to fire in response if they are connected
+    makes the target pattern fire in response, if they are connected
     """
     def __init__(self,
                  source: NeuralPattern,
@@ -24,9 +25,23 @@ class PatternsConnection:
         self.tick = tick
         self.area = area
         self.dope_value = dope_value
+        self.pattern = NeuralPattern(
+            space_size=HyperParameters.encoder_space_size,
+            value_size=HyperParameters.encoder_norm,
+            generate_inplace=True
+        )
+        self.pattern.source_area = area
+        self.pattern.source_patterns = [source, target]
+        self.pattern.data = self._merge_pattern_datas(source, target)
         global GLOBAL_COUNTER
         self._id = GLOBAL_COUNTER
         GLOBAL_COUNTER += 1
+
+    @staticmethod
+    def _merge_pattern_datas(pattern1: NeuralPattern, pattern2: NeuralPattern):
+        data1 = pattern1.data if isinstance(pattern1.data, dict) else {pattern1.source_area.name: pattern1.data}
+        data2 = pattern2.data if isinstance(pattern2.data, dict) else {pattern2.source_area.name: pattern2.data}
+        return {**data1, **data2}
 
     @classmethod
     def add(cls, source, target, agent, **kwargs) -> 'PatternsConnection':

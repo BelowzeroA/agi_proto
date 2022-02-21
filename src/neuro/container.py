@@ -27,10 +27,15 @@ class Container:
     def get_outgoing_connections(self, area: NeuralArea) -> List[InterAreaConnection]:
         return [c for c in self.connections if c.source == area]
 
-    def add_connection(self, source: NeuralArea, target: NeuralPattern) -> InterAreaConnection:
+    def add_connection(
+            self,
+            source: NeuralArea,
+            target: NeuralPattern,
+            source_output_property: str = None
+    ) -> InterAreaConnection:
         connections = [c for c in self.connections if c.source == source and c.target == target]
         assert len(connections) == 0, f'Connection between {source} and {target} already exists'
-        conn = InterAreaConnection(source=source, target=target)
+        conn = InterAreaConnection(source=source, target=target, source_output_property=source_output_property)
         self.connections.append(conn)
         conn.on_adding()
         return conn

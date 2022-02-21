@@ -7,6 +7,7 @@ from neuro.container import Container
 from neuro.dopamine_portion import DopaminePortion
 from neuro.hyper_params import HyperParameters
 from neuro.network import Network
+from neuro.zones.confluence_zone import ConfluenceZone
 from neuro.zones.motor_zone import MotorZone
 from neuro.zones.reflex_zone import ReflexZone
 from neuro.zones.tactile_zone import TactileZone
@@ -26,6 +27,9 @@ log_path = os.path.join(path_from_root('logs'), 'log.txt')
 
 
 class Agent:
+
+    MAX_BODIES_NUM = 5
+
     """
     AGI agent is trying to adapt to the environment by observing it's state
     and learning useful reflexes to maximize dopamine
@@ -65,6 +69,13 @@ class Agent:
             vr_zone=self.visual_recognition,
             ta_zone=self.tactile
         )
+        self.confluence = ConfluenceZone.add(
+            name='CO',
+            agent=self,
+            visual=self.visual_recognition,
+            tactile=self.tactile,
+            reflex=self.reflex,
+        )
 
     def on_message(self, data: dict):
         current_tick = self.network.current_tick
@@ -103,7 +114,7 @@ class Agent:
 
     def loop_strategy(self, packet):
         body_data = packet['data']
-        if len(body_data) == 0 or len(body_data) > 3:
+        if len(body_data) == 0 or len(body_data) > 5:
             return
 
         current_tick = self.network.current_tick
@@ -219,7 +230,7 @@ class Agent:
 
     def focus_strategy(self, packet):
         data = packet['data']
-        if len(data) == 0 or len(data) > 3:
+        if len(data) == 0 or len(data) > Agent.MAX_BODIES_NUM:
             return
 
         current_tick = self.network.current_tick
@@ -297,10 +308,11 @@ class Agent:
         self.network.reset_perception()
 
     def _convert_move_actions(self):
-        self.actions['move_left'] = self.actions['move']['left']
-        self.actions['move_right'] = self.actions['move']['right']
-        self.actions['move_up'] = self.actions['move']['up']
-        self.actions['move_down'] = self.actions['move']['down']
+        if 'move' in self.actions:
+            self.actions['move_left'] = self.actions['move']['left']
+            self.actions['move_right'] = self.actions['move']['right']
+            self.actions['move_up'] = self.actions['move']['up']
+            self.actions['move_down'] = self.actions['move']['down']
 
     def _convert_attention_spot(self):
         attention_x, attention_y = -1, -1
