@@ -20,7 +20,7 @@ class ReflexZone(NeuralZone):
         self.motor_zone = motor_zone
         self.vr_zone = vr_zone
         self.ta_zone = ta_zone
-        self.combiner = PatternsCombiner(agent)
+        self.combiner = PatternsCombiner(name=f'Combiner: {name}', agent=agent, zone=self)
         self._integrate_with_motor_zone()
         self._integrate_with_perception()
 

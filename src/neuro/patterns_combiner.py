@@ -8,7 +8,8 @@ class PatternsCombiner(NeuralArea):
     """
     A special kind of neural area that makes combinations of input patterns
     """
-    def __init__(self, agent):
+    def __init__(self, name, agent, zone):
+        super().__init__(name=name, agent=agent, zone=zone)
         self.agent = agent
         self.output_areas = []
         self.inputs = []

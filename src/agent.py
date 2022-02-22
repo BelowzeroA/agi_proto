@@ -1,5 +1,6 @@
 import os
 import random
+import time
 
 from common.logger import Logger
 from common.timer import Timer
@@ -56,6 +57,7 @@ class Agent:
         self.last_report_tick = 0
         self.body_cache = {}
         self.execution_timer = Timer()
+        self.striatum_energy = 0
 
     def _build_network(self):
         self.visual_recognition = VisualRecognitionZone.add(name='VR', agent=self)
@@ -86,6 +88,7 @@ class Agent:
             if current_tick not in self.dopamine_flow:
                 self.dopamine_flow[current_tick] = []
             self.dopamine_flow[current_tick].append(DopaminePortion(data['surprise_level'], data['area']))
+            self.striatum_energy -= data['surprise_level']
 
         elif message == 'hand_move':
 
@@ -301,11 +304,19 @@ class Agent:
         self.tactile.activate(packet['mode'])
 
         self.network.verbose = False
+
+        self.striatum_energy += HyperParameters.striatum_energy_for_step
+        if self.striatum_energy > HyperParameters.max_striatum_energy:
+            self.striatum_energy = HyperParameters.max_striatum_energy
+        if self.striatum_energy < HyperParameters.min_striatum_energy:
+            self.striatum_energy = HyperParameters.min_striatum_energy
+
         for i in range(HyperParameters.network_steps_per_env_step):
             self.surprise = 0
             self.network.step()
 
         self.network.reset_perception()
+        # time.sleep(0.2)
 
     def _convert_move_actions(self):
         if 'move' in self.actions:

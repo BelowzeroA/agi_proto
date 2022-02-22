@@ -18,6 +18,7 @@ class NeuralArea:
         self.output_space_size = 0
         self.zone = zone
         self.is_receptive = False
+        self.receive_empty_input = False
 
     @classmethod
     def add(cls, name, agent, zone, **kwargs) -> 'NeuralArea':

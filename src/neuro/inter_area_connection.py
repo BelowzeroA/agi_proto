@@ -21,7 +21,7 @@ class InterAreaConnection:
         else:
             output = self.source.output
 
-        if output:
+        if output or self.target.receive_empty_input:
             self.target.inputs[self.target_slot_index] = output
 
     def on_adding(self):

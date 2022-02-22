@@ -22,6 +22,10 @@ class ActionArea(NeuralArea):
         self.output_space_size = output_space_size
         self.output_norm = output_norm
         self.patterns: List[NeuralPattern] = []
+        self.receive_empty_input = True
 
     def update(self):
         pass
+
+    def reset_inputs(self):
+        self.inputs = [None for i in range(len(self.input_sizes))]

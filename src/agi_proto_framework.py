@@ -311,10 +311,14 @@ class CustomPygameFramework(Box2D.examples.framework.FrameworkBase if SERVER
         sc_text_2 = self.f_sys.render(
             'Current tick: %s' % self.agent_message['current_tick'], 1, color, (0, 0, 0)
         )
+        text_3 = self.f_sys.render(f'energy: {agent.striatum_energy:3.1f}', 1, color, (0, 0, 0))
+
         text_pos = sc_text.get_rect(topleft=(13, 13))
         text_pos_2 = sc_text.get_rect(topleft=(13, 33))
+        text_pos_3 = sc_text.get_rect(topleft=(100, 33))
         self.screen.blit(sc_text, text_pos)
         self.screen.blit(sc_text_2, text_pos_2)
+        self.screen.blit(text_3, text_pos_3)
         """
         Переопределили функцию которая делает тексты
         Draw some text at the top status lines

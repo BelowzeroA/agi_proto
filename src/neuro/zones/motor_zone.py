@@ -25,3 +25,7 @@ class MotorZone(NeuralZone):
                 output_norm=10
             )
 
+    # def on_step_begin(self):
+    #     for area in self.areas:
+    #         area.reset_inputs()
+

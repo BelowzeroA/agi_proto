@@ -98,6 +98,7 @@ class ReflexArea(NeuralArea):
         self.make_move(ticks=10, down=2)
         self.make_move(ticks=13, left=2)
         self.make_move(ticks=20, left=0, up=2, grab=1)
+        self.make_move(ticks=10, left=1, up=0, grab=0)
         return self.move_return
 
     def predefined_motion0(self):
@@ -181,6 +182,9 @@ class ReflexArea(NeuralArea):
         self.history[current_tick] = (self.inputs, output)
         # output.log(self)
         self.output = output
+
+        if self.agent.striatum_energy < 0:
+            self.output = None
 
     def _process_input_output_combination(
             self,

@@ -31,16 +31,20 @@ class HandMotionArea(ActionArea):
             output_norm=output_norm,
         )
         self.patterns: List[NeuralPattern] = []
-        self._generate_action_patterns()
+
         self.pattern_start_tick = None
         self.action_value = 0
+        self.action_standby = {'left': 0, 'right': 0, 'up': 0, 'down': 0}
+        self.pattern_standby = None
+
+        self._generate_action_patterns()
 
     def get_patterns(self):
         return self.patterns
 
     def _get_motion_patterns(self):
         actions = []
-        actions.append({'left': 0, 'right': 0, 'up': 0, 'down': 0})
+        actions.append(self.action_standby)
 
         actions.append({'left': 1, 'right': 0, 'up': 0, 'down': 0})
         actions.append({'left': 2, 'right': 0, 'up': 0, 'down': 0})
@@ -84,6 +88,8 @@ class HandMotionArea(ActionArea):
                 pattern.generate_random()
                 pattern.data = data
                 self.patterns.append(pattern)
+                if data == self.action_standby:
+                    self.pattern_standby = pattern
 
         elif self.name == 'Action: grab':
             for data in GRAB_ACTION_SPACE:
@@ -98,13 +104,18 @@ class HandMotionArea(ActionArea):
 
     def update(self):
         input_pattern = self.inputs[0]
-        if not input_pattern:
-            return
 
-        self.agent.on_message({
-            'message': 'hand_move',
-            'action_id': self.action_id,
-            'action_value': input_pattern.data
-        })
+        if not input_pattern:
+            self.agent.on_message({
+                'message': 'hand_move',
+                'action_id': 0,
+                'action_value': self.pattern_standby
+            })
+        else:
+            self.agent.on_message({
+                'message': 'hand_move',
+                'action_id': self.action_id,
+                'action_value': input_pattern.data
+            })
         self.output = input_pattern
         # self.output = self.patterns[self.action_value]
